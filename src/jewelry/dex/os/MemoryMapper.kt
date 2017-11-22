@@ -1,45 +1,39 @@
 package jewelry.dex.os
 
-import brilliant.elf.util.Log
-import java.io.File
-import java.io.IOException
-import java.io.RandomAccessFile
+import jewelry.dex.util.data.toByteArray
+import jewelry.dex.util.data.toHex
+import jewelry.dex.util.data.toInt32
+import jewelry.dex.util.log.Log
+import jewelry.dex.util.memory.PAGE_END
+import jewelry.dex.util.memory.PAGE_OFFSET
+import jewelry.dex.util.memory.PAGE_SHIFT
+import java.io.*
+
+private val debug = false
 
 internal object MemoryMapper {
 
     /**
      * we mmap a file into byte[]
      */
-    fun mmap(start: Int, length: Int, flag: Int, fd: File?, offset: Long, os: OS): Int {
-        var raf: RandomAccessFile? = null
-        try {
-            raf = RandomAccessFile(fd!!, "r")
-        } catch (e: Exception) {
-            e.printStackTrace()
-            if (fd != null)
-                return -1
-        }
+    fun mmap(start: Int, length: Int, flag: Int, fd: File, offset: Long): Int {
+        val raf: InputStream =
+                FileInputStream(fd)
 
-        if (OS.PAGE_OFFSET(start.toLong()) > 0 && flag and OS.MAP_FIXED != 0)
+        if (PAGE_OFFSET(start.toLong()) > 0 && flag and MAP_FIXED != 0)
             return -1
 
         try {
 
-            if (flag and OS.MAP_FIXED == 0)
-                return mmapNotFix(length, flag, raf, offset, os)
+            if (flag and MAP_FIXED == 0)
+                return mmapNotFix(length, flag, raf, offset)
             else
-                return mmapFix(start, length, flag, raf, offset, os)
+                return mmapFix(start, length, flag, raf, offset)
 
         } catch (e: Throwable) {
             throw IllegalStateException()
         } finally {
-            if (raf != null)
-                try {
-                    raf.close()
-                } catch (e: IOException) {
-                    e.printStackTrace()
-                }
-
+            raf.close()
         }
 
     }
@@ -47,73 +41,73 @@ internal object MemoryMapper {
     /**
      * we mmap a file into byte[]
      */
-    fun mmap(start: Int, length: Int, flag: Int, raf: RandomAccessFile?, offset: Long, os: OS): Int {
+    fun mmap(start: Int, length: Int, flag: Int, raf: InputStream, offset: Long): Int {
 
-        if (OS.debug)
+        if (debug)
             Log.e("mmap(0x" + Integer.toHexString(start) + ",0x" + Integer.toHexString(length) + "," + flag
                     + ",...," + offset + ")")
 
-        if (OS.PAGE_OFFSET(start.toLong()) > 0 && ((flag and OS.MAP_FIXED) != 0))
+        if (PAGE_OFFSET(start.toLong()) > 0 && ((flag and MAP_FIXED) != 0))
             return -1
 
-        if (flag and OS.MAP_FIXED == 0)
-            return mmapNotFix(length, flag, raf, offset, os)
+        return if (flag and MAP_FIXED == 0)
+            mmapNotFix(length, flag, raf, offset)
         else
-            return mmapFix(start, length, flag, raf, offset, os)
+            mmapFix(start, length, flag, raf, offset)
 
     }
 
-    private fun mmapFix(start: Int, length: Int, flag: Int, raf: RandomAccessFile?, offset: Long, os: OS): Int {
+    private fun mmapFix(start: Int, length: Int, flag: Int, raf: InputStream, offset: Long): Int {
 
         if (length < 0)
             throw IllegalArgumentException("length < 0")
-        if (OS.PAGE_OFFSET(start.toLong()) != 0.toLong())
+        if (PAGE_OFFSET(start.toLong()) != 0.toLong())
             return -1
 
-        val startIndex = (start shr OS.PAGE_SHIFT)
-        val endIndex = ((OS.PAGE_END(length.toLong()) shr OS.PAGE_SHIFT) + startIndex).toInt()
-        if (OS.debug) {
+        val startIndex = (start shr PAGE_SHIFT)
+        val endIndex = ((PAGE_END(length.toLong()) shr PAGE_SHIFT) + startIndex).toInt()
+        if (debug) {
             Log.e("start $start length $length")
             Log.e("startIndex $startIndex endIndex $endIndex")
         }
-        for (i in startIndex..endIndex - 1)
-            if (i >= os.mFlag.size) {
-                incMemory(OS.PAGE_END(length.toLong()).toInt(), os)
-                return mmapFix(start, length, flag, raf, offset, os)
+        for (i in startIndex until endIndex)
+            if (i >= OS.mFlag.size) {
+                incMemory(PAGE_END(length.toLong()).toInt())
+                return mmapFix(start, length, flag, raf, offset)
             }
 
-        if (raf != null)
-            try {
-                raf.seek(offset)
-                raf.read(os.memory, start, length)
+        try {
+            raf.skip(offset)
+            raf.read(OS.MEMORY, start, length)
 
-                val inc_Bit = (OS.PAGE_END(length.toLong()) + start).toInt() shr OS.PAGE_SHIFT
-                for (mPtr in (start shr OS.PAGE_SHIFT)..inc_Bit - 1)
-                    os.mFlag[mPtr] = flag
+            val inc_Bit = (PAGE_END(length.toLong()) + start).toInt() shr PAGE_SHIFT
+            for (mPtr in (start shr PAGE_SHIFT) until inc_Bit)
+                OS.mFlag[mPtr] = flag
 
-            } catch (e: IOException) {
-                e.printStackTrace()
-                return -1
-            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            return -1
+        }
 
         return start
     }
 
-    private fun mmapGetFreeAddress(length: Int, os: OS): Int {
+    private fun mmapGetFreeAddress(length: Int): Int {
 
         var blockCount = 0
         var lastSearch = 0
-        val needBlockCount = (OS.PAGE_END(length.toLong()) shr OS.PAGE_SHIFT).toInt()
+        val test = PAGE_END(length.toLong())
+        val needBlockCount = (test shr PAGE_SHIFT).toInt()
 
-        val arrayLength = os.mFlag.size
+        val arrayLength = OS.mFlag.size
         for (i in 0..arrayLength - 1) {
-            if (os.mFlag[i] == -1) {
+            if (OS.mFlag[i] == -1) {
 
                 if (++blockCount >= needBlockCount) {
                     if (needBlockCount == 1)
-                        return i shl OS.PAGE_SHIFT
+                        return i shl PAGE_SHIFT
                     else
-                        return lastSearch shl OS.PAGE_SHIFT
+                        return lastSearch shl PAGE_SHIFT
                 }
                 if (lastSearch == -1)
                     lastSearch = i
@@ -122,78 +116,72 @@ internal object MemoryMapper {
                 blockCount = 0
             }
         }
-        return if (blockCount == needBlockCount) lastSearch shl OS.PAGE_SHIFT else -1
+        return if (blockCount == needBlockCount) lastSearch shl PAGE_SHIFT else -1
     }
 
-    private fun mmapNotFix(length: Int, flag: Int, raf: RandomAccessFile?, offset: Long, os: OS): Int {
+    private fun mmapNotFix(length: Int, flag: Int, raf: InputStream, offset: Long): Int {
 
-        var startAddr = mmapGetFreeAddress(length, os)
+        var startAddr = mmapGetFreeAddress(length)
 
         if (startAddr < 0) {
-            incMemory(OS.PAGE_END(length.toLong()).toInt(), os)
-            startAddr = mmapGetFreeAddress(length, os)
+            incMemory(PAGE_END(length.toLong()).toInt())
+            startAddr = mmapGetFreeAddress(length)
         }
 
         if (startAddr < 0)
             throw IllegalArgumentException("startAddress < 0")
 
-        if (raf != null)
-            try {
-                raf.seek(offset)
-                raf.read(os.memory, startAddr, length)
-            } catch (e: Exception) {
-                e.printStackTrace()
-                return -1
-            }
+        raf.skip(offset)
+        raf.read(OS.MEMORY, startAddr, length)
 
-        val inc_Bit = (OS.PAGE_END(length.toLong()) + startAddr).toInt() shr OS.PAGE_SHIFT
+        val inc_Bit = (PAGE_END(length.toLong()) + startAddr).toInt() shr PAGE_SHIFT
 
-        for (mPtr in (startAddr shr OS.PAGE_SHIFT)..inc_Bit - 1)
-            os.mFlag[mPtr] = flag
+        for (mPtr in (startAddr shr PAGE_SHIFT)..inc_Bit - 1)
+            OS.mFlag[mPtr] = flag
 
         return startAddr
     }
 
-    fun unmmap(start: Int, length: Int, os: OS): Int {
+    fun unmmap(start: Int, length: Int): Int {
 
         if (length < 0)
             throw IllegalArgumentException()
 
-        if (OS.PAGE_OFFSET(start.toLong()) > 0)
+        if (PAGE_OFFSET(start.toLong()) > 0)
             return -1
 
-        val blockCount = (OS.PAGE_END(length.toLong()) shr OS.PAGE_SHIFT).toInt()
+        val blockCount = (PAGE_END(length.toLong()) shr PAGE_SHIFT).toInt()
 
-        val startBlock = start shr OS.PAGE_SHIFT
+        val startBlock = start shr PAGE_SHIFT
         var endIndex = startBlock + blockCount
 
-        if (endIndex > os.mFlag.size)
-            endIndex = os.mFlag.size
+        if (endIndex > OS.mFlag.size)
+            endIndex = OS.mFlag.size
 
-        for (i in startBlock..endIndex - 1)
-            os.mFlag[i] = -1
+        for (i in startBlock until endIndex)
+            OS.mFlag[i] = -1
 
         return 0
     }
 
-    private fun incMemory(size: Int, os: OS) {
+    private fun incMemory(size: Int) {
         var size = size
-        if (OS.debug)
+        if (debug)
             Log.e("inc Space : " + size)
 
-        if (OS.PAGE_OFFSET(size.toLong()) > 0)
+        if (PAGE_OFFSET(size.toLong()) > 0)
             throw IllegalArgumentException()
 
-        size += os.memory.size
+        size += OS.MEMORY.size
         if (size < 0)
             throw OutOfMemoryError()
 
         val result = ByteArray(size)
-        System.arraycopy(os.memory, 0, result, 0, os.memory.size)
-        val flag = IntArray(size shr OS.PAGE_SHIFT)
-        System.arraycopy(os.mFlag, 0, flag, 0, os.mFlag.size)
+        System.arraycopy(OS.MEMORY, 0, result, 0, OS.MEMORY.size)
+        val flag = IntArray(size shr PAGE_SHIFT)
+        System.arraycopy(OS.mFlag, 0, flag, 0, OS.mFlag.size)
 
-        var start = os.mFlag.size
+        var start = OS.mFlag.size
 
         val length = flag.size
         while (start < length) {
@@ -201,13 +189,12 @@ internal object MemoryMapper {
             start++
         }
 
-        os.memory = result
-        os.mFlag = flag
+        OS.MEMORY = result
+        OS.mFlag = flag
 
-        if (OS.debug) {
-            Log.e("os.memory = ${os.memory.size}")
-            Log.e("os.mFlag = ${os.mFlag.size}")
+        if (debug) {
+            Log.e("OS.MEMORY = ${OS.MEMORY.size}")
+            Log.e("OS.mFlag = ${OS.mFlag.size}")
         }
-
     }
 }

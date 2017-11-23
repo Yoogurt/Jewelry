@@ -6,9 +6,7 @@ object UtilGlobal {
 
 //---------------------- BYTE ------------------------//
 
-fun Byte.toInt32(): Int {
-    return if (this < 0) this + 256 else toInt()
-}
+fun Byte.toInt32(): Int = if (this < 0) this + 256 else toInt()
 
 fun Byte.toHex(): String {
     val internal = toInt32()
@@ -33,17 +31,16 @@ fun ByteArray.toHex(startIndex: Int = 0, length: Int = size): String {
     return sb.toString().trim { it <= ' ' }
 }
 
-inline fun ByteArray.copyTo(target: ByteArray, startIndex: Int = 0, length: Int = target.size) {
+inline fun ByteArray.copyTo(target: ByteArray, startIndex: Int = 0, length: Int = target.size) =
     System.arraycopy(this, startIndex, target, 0, length)
-}
 
-fun ByteArray.equals(obj: Int, startIndex: Int = 0, length: Int = size, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Boolean {
-    return obj == toInt32(startIndex, length, isLittleEndian)
-}
 
-inline fun ByteArray.startWith(other: ByteArray): Boolean {
-    return partialEquals(other, 0)
-}
+fun ByteArray.equals(obj: Int, startIndex: Int = 0, length: Int = size, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Boolean =
+     obj == toInt32(startIndex, length, isLittleEndian)
+
+
+inline fun ByteArray.startWith(other: ByteArray): Boolean = partialEquals(other, 0)
+
 
 fun ByteArray.partialEquals(other: ByteArray, startIndex: Int): Boolean {
     other.forEachIndexed { index, it ->
@@ -81,18 +78,12 @@ fun ByteArray.equals(obj: Long, startIndex: Int = 0, length: Int = size, isLittl
 
 fun ByteArray.toInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Long {
 
-    if (length > 8)
-        throw IllegalArgumentException("cann't parse data , because it's too long")
-
     if (isLittleEndian) {
-
         var actullyValue = 0L
 
         for (m in startIndex until startIndex + length) {
-            val wordValue =
-                    this[m + startIndex].toInt32()
-
-            actullyValue = actullyValue or (wordValue shl ((m - startIndex) shl 3)).toLong()
+            val wordValue = this[m].toInt32().toLong()
+            actullyValue = actullyValue or (wordValue shl ((m - startIndex) shl 3))
         }
         return actullyValue
 
@@ -108,6 +99,10 @@ fun ByteArray.toInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Bool
 }
 
 //---------------------- SHORT ------------------------//
+
+fun ByteArray.toInt16(startIndex: Int = 0, length: Int = 2, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Short =
+        toInt32(startIndex, length).toShort()
+
 
 fun Short.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): ByteArray {
     var `val` = this.toInt()

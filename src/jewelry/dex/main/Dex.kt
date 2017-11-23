@@ -14,13 +14,13 @@ const val debug = true
 
 class Dex private constructor(filePath: String) {
 
-    internal val mFilePath = filePath
+    internal val location = filePath
 
     internal val mDexPartial = LinkedList<DexPartial>()
 
     private fun parse(): Dex {
         if (mDexPartial.size < 1)
-            "no dex found in ${mFilePath}".error()
+            "no dex found in ${location}".error()
         mDexPartial.forEach {
             it.parse()
         }
@@ -49,7 +49,7 @@ class Dex private constructor(filePath: String) {
 
                     val mmapAddress = mmap(0, it.size.toInt(), PROT_NONE, jarFile.getInputStream(it), 0)
 
-                    dex.mDexPartial.add(DexPartial(mmapAddress, it.size.toInt()))
+                    dex.mDexPartial.add(DexPartial(dex, mmapAddress, it.size.toInt()))
 
                     if (debug)
                         "${it.name} mmap at $mmapAddress".log()

@@ -1,8 +1,6 @@
 package jewelry.dex.main.ineterface
 
-import jewelry.dex.main.DexHeader
 import java.io.OutputStream
-import java.io.RandomAccessFile
 
 internal abstract class DexBase<out Holder> constructor(offset: Int) where Holder : DexBase.Companion.DexBaseMemberHolder {
 
@@ -28,7 +26,7 @@ internal abstract class DexBase<out Holder> constructor(offset: Int) where Holde
 
     companion object {
         internal abstract class DexBaseMemberHolder {
-            abstract fun onParse(offset : Int)
+            abstract fun onParse(offset: Int)
             abstract fun onVerify()
         }
     }

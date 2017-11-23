@@ -8,9 +8,10 @@ import jewelry.dex.os.OS
 import jewelry.dex.util.data.*
 import java.io.OutputStream
 
-internal class DexHeader(host: DexPartial) : DexBase<DexHeader.Companion.DexHeaderHolder>(host.begin) {
-    internal val begin = host.begin
-    internal val size = host.size
+internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.DexHeaderHolder>(partial.begin) {
+
+    internal val begin = partial.begin
+    internal val size = partial.size
 
     override fun onCreateHolder(): DexHeaderHolder {
         return DexHeaderHolder(this)
@@ -21,7 +22,7 @@ internal class DexHeader(host: DexPartial) : DexBase<DexHeader.Companion.DexHead
     }
 
     companion object {
-        internal class DexHeaderHolder(val host: DexHeader) : DexBase.Companion.DexBaseMemberHolder() {
+        internal class DexHeaderHolder(val header: DexHeader) : DexBase.Companion.DexBaseMemberHolder() {
 
             var magic: u1Array = ByteArray(DexHeaderConstant.kMagicSize)
                 private set
@@ -31,7 +32,7 @@ internal class DexHeader(host: DexPartial) : DexBase<DexHeader.Companion.DexHead
                 private set
             var file_size: u4 = 0  // size of entire file
                 private set
-            var header_size: u4 = 0  // offset to start of next section
+            var header_size: u4 = 0  // start to start of next section
                 private set
             var endian_tag: u4 = 0
                 private set
@@ -43,27 +44,27 @@ internal class DexHeader(host: DexPartial) : DexBase<DexHeader.Companion.DexHead
                 private set
             var string_ids_size: u4 = 0  // number of StringIds
                 private set
-            var string_ids_off: u4 = 0  // file offset of StringIds array
+            var string_ids_off: u4 = 0  // file start of StringIds array
                 private set
             var type_ids_size: u4 = 0  // number of TypeIds, we don't support more than 65535
                 private set
-            var type_ids_off: u4 = 0  // file offset of TypeIds array
+            var type_ids_off: u4 = 0  // file start of TypeIds array
                 private set
             var proto_ids_size: u4 = 0  // number of ProtoIds, we don't support more than 65535
                 private set
-            var proto_ids_off: u4 = 0  // file offset of ProtoIds array
+            var proto_ids_off: u4 = 0  // file start of ProtoIds array
                 private set
             var field_ids_size: u4 = 0  // number of FieldIds
                 private set
-            var field_ids_off: u4 = 0  // file offset of FieldIds array
+            var field_ids_off: u4 = 0  // file start of FieldIds array
                 private set
             var method_ids_size: u4 = 0  // number of MethodIds
                 private set
-            var method_ids_off: u4 = 0  // file offset of MethodIds array
+            var method_ids_off: u4 = 0  // file start of MethodIds array
                 private set
             var class_defs_size: u4 = 0  // number of ClassDefs
                 private set
-            var class_defs_off: u4 = 0  // file offset of ClassDef array
+            var class_defs_off: u4 = 0  // file start of ClassDef array
                 private set
             var data_size: u4 = 0  // unused
                 private set
@@ -98,7 +99,7 @@ internal class DexHeader(host: DexPartial) : DexBase<DexHeader.Companion.DexHead
             }
 
             override fun onVerify() {
-                DexVerifier(this, host.size).verify()
+                DexVerifier(this, header.begin, header.size, header.partial.dex.location).verify(false)
             }
         }
     }

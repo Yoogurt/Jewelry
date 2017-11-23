@@ -1,9 +1,8 @@
 package jewelry.dex.util.data
 
-import jewelry.dex.main.DexException
-import jewelry.dex.util.log.log
-
-var DEFAULT_LITTLE_ENDIAN: Boolean = true
+object UtilGlobal {
+    var DEFAULT_LITTLE_ENDIAN: Boolean = true
+}
 
 //---------------------- BYTE ------------------------//
 
@@ -38,7 +37,7 @@ inline fun ByteArray.copyTo(target: ByteArray, startIndex: Int = 0, length: Int 
     System.arraycopy(this, startIndex, target, 0, length)
 }
 
-fun ByteArray.equals(obj: Int, startIndex: Int = 0, length: Int = size, isLittleEndian: Boolean = DEFAULT_LITTLE_ENDIAN): Boolean {
+fun ByteArray.equals(obj: Int, startIndex: Int = 0, length: Int = size, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Boolean {
     return obj == toInt32(startIndex, length, isLittleEndian)
 }
 
@@ -54,7 +53,7 @@ fun ByteArray.partialEquals(other: ByteArray, startIndex: Int): Boolean {
     return true
 }
 
-fun ByteArray.toInt32(startIndex: Int = 0, length: Int = 4, isLittleEndian: Boolean = DEFAULT_LITTLE_ENDIAN): Int {
+fun ByteArray.toInt32(startIndex: Int = 0, length: Int = 4, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Int {
 
     if (isLittleEndian) {
         var actullyValue = 0
@@ -76,11 +75,11 @@ fun ByteArray.toInt32(startIndex: Int = 0, length: Int = 4, isLittleEndian: Bool
     }
 }
 
-fun ByteArray.equals(obj: Long, startIndex: Int = 0, length: Int = size, isLittleEndian: Boolean = DEFAULT_LITTLE_ENDIAN): Boolean {
+fun ByteArray.equals(obj: Long, startIndex: Int = 0, length: Int = size, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Boolean {
     return obj == toInt64(startIndex, length, isLittleEndian)
 }
 
-fun ByteArray.toInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Boolean = DEFAULT_LITTLE_ENDIAN): Long {
+fun ByteArray.toInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Long {
 
     if (length > 8)
         throw IllegalArgumentException("cann't parse data , because it's too long")
@@ -108,24 +107,16 @@ fun ByteArray.toInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Bool
 
 }
 
-inline fun ByteArray.log(msg: String) {
-    "$msg ${toHex()}".log()
-}
-
-inline fun ByteArray.error(msg: String) {
-    throw DexException("$msg ${toHex()}")
-}
-
 //---------------------- SHORT ------------------------//
 
-fun Short.toByteArray(isLittleEndian: Boolean = DEFAULT_LITTLE_ENDIAN): ByteArray {
+fun Short.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): ByteArray {
     var `val` = this.toInt()
     val ret = ByteArray(2)
     var startIndex = if (isLittleEndian)
-        0 else 1
+        0 else ret.size - 1
     val step = if (isLittleEndian) 1 else -1
 
-    while (startIndex in 0..1) {
+    while (startIndex in 0..(ret.size - 1)) {
         ret[startIndex] = `val`.toByte()
         `val` = `val` shr 8
         startIndex += step
@@ -140,14 +131,34 @@ fun Int.assertAlignment() {
         throw AssertionError()
 }
 
-fun Int.toByteArray(isLittleEndian: Boolean = DEFAULT_LITTLE_ENDIAN): ByteArray {
+fun Int.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): ByteArray {
     var `val` = this
     val ret = ByteArray(4)
     var startIndex = if (isLittleEndian)
-        0 else 3
+        0 else ret.size - 1
     val step = if (isLittleEndian) 1 else -1
 
-    while (startIndex in 0..3) {
+    while (startIndex in 0..(ret.size - 1)) {
+        ret[startIndex] = `val`.toByte()
+        `val` = `val` shr 8
+        startIndex += step
+    }
+    return ret
+}
+
+fun Int.isAlignedParam(alignment: Int): Boolean {
+    return this % alignment == 0
+}
+
+//---------------------- LONG ------------------------//
+fun Long.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): ByteArray {
+    var `val` = this
+    val ret = ByteArray(8)
+    var startIndex = if (isLittleEndian)
+        0 else ret.size - 1
+    val step = if (isLittleEndian) 1 else -1
+
+    while (startIndex in 0..(ret.size - 1)) {
         ret[startIndex] = `val`.toByte()
         `val` = `val` shr 8
         startIndex += step

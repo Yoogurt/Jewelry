@@ -1,11 +1,11 @@
 package jewelry.dex.main
 
-class DexPartial(val begin: Int, val size: Int) {
+class DexPartial(val dex: Dex, val begin: Int, val size: Int) {
 
-    internal lateinit var mHeader: DexHeader
+    internal lateinit var header: DexHeader
 
     fun parse() {
-        mHeader = DexHeader(this)
-        mHeader.parse()
+        header = DexHeader(this)
+        header.parse()
     }
 }

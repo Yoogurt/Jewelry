@@ -16,6 +16,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
     fun verify(checkAdler: Boolean = true) {
         checkHeader(checkAdler)
         checkMap()
+        checkIntraSection()
     }
 
     /*---------------------------header----------------------------*/
@@ -109,7 +110,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
     private fun checkMap() {
         val start = begin + holder.map_off
         val map = holder.header.map_list
-        checkListSize(start, 1, kMapListSize, "maplist content")
+        checkListSize(start, 1, MapItem.size, "maplist content")
 
         var items = map.list
 
@@ -119,7 +120,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         var data_items_left = holder.data_size
         var used_bits = 0
 
-        checkListSize(start + 4, count, kMapItemSize, "map size")
+        checkListSize(start + 4, count, MapItem.size, "map size")
 
         items.forEachIndexed { index, item ->
             if (last_offset >= item.offset && index != 0)
@@ -189,6 +190,18 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             "Overflow in range for $label: ${range_start - file_start} for $count@$elem_size".error()
     }
 
+    private fun checkList(element_size: size_t, label: String, ptr: u4): u4 {
+        var ptr = ptr
+        checkListSize(ptr, 1, 4, label)
+
+        val count = OS.MEMORY.toInt32(ptr)
+        if (count > 0)
+            checkListSize(ptr + 4, count, element_size, label)
+
+        ptr += 4 + count + element_size
+        return ptr
+    }
+
     /*---------------------------intraSection----------------------------*/
 
     private fun checkIntraSection() {
@@ -227,7 +240,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                 DexFile.kDexTypeFieldIdItem,
                 DexFile.kDexTypeMethodIdItem,
                 DexFile.kDexTypeClassDefItem -> {
-
+                    checkIntraIdSection(section_offset, section_count, type)
                 }
             }
         }
@@ -303,8 +316,46 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                     else ->
                         4 - 1;
                 }
-        (0 until section_count).forEach {
 
+        // Iterate through the items in the section.
+        (0 until section_count).forEach {
+            var aligned_offset = (offset + alignment_mask) and alignment_mask.inv()
+
+            // Check the padding between items.
+            checkPadding(offset, aligned_offset)
+
+            when (type.toInt()) {
+                DexFile.kDexTypeStringIdItem -> {
+                    checkListSize(ptr, 1, StringId.size, "string_ids")
+                    ptr += StringId.size
+                }
+                DexFile.kDexTypeTypeIdItem -> {
+                    checkListSize(ptr, 1, TypeId.size, "type_ids")
+                    ptr += TypeId.size
+                }
+                DexFile.kDexTypeProtoIdItem -> {
+                    checkListSize(ptr, 1, ProtoId.size, "proto_ids")
+                    ptr += ProtoId.size
+                }
+                DexFile.kDexTypeFieldIdItem -> {
+                    checkListSize(ptr, 1, FieldId.size, "field_ids")
+                    ptr += FieldId.size
+                }
+                DexFile.kDexTypeMethodIdItem -> {
+                    checkListSize(ptr, 1, MethodId.size, "method_ids")
+                    ptr += MethodId.size
+                }
+                DexFile.kDexTypeClassDefItem -> {
+                    checkListSize(ptr, 1, ClassDef.size, "class_defs")
+                    ptr += ClassDef.size
+                }
+                DexFile.kDexTypeTypeList -> {
+                    ptr = checkList(TypeItem.size, "type_list", ptr)
+                }
+                DexFile.kDexTypeAnnotationSetRefList->{
+
+                }
+            }
         }
     }
 

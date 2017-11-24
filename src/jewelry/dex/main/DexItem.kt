@@ -1,5 +1,6 @@
 package jewelry.dex.main
 
+import jewelry.dex.main.constant.u4
 import jewelry.dex.main.constant.uint16_t
 import jewelry.dex.main.constant.uint32_t
 import jewelry.dex.os.OS
@@ -18,21 +19,12 @@ internal data class MapItem(val type: uint16_t, val unused: uint16_t, val size: 
 }
 
 internal data class MapList(val size: uint32_t, val list: Array<MapItem>) {
-    init {
-        if (list.size > 1)
-            "MapList require only one MapItem".error()
-    }
-
     companion object {
+        fun create(buffer: MemoryReader): MapList {
+            val size = buffer.uint32_t
+            return MapList(size, Array(size) {
+                return@Array MapItem.create(buffer)
+            })
+        }
     }
-}
-
-fun main(vararg arg: String) {
-    for (i in 0..10)
-        OS.MEMORY[i] = i.toByte()
-
-    var mr = MemoryReader(0)
-    println(mr.u2.toByteArray().toHex())
-    println(mr.u2.toByteArray().toHex())
-    println(mr.u2.toByteArray().toHex())
 }

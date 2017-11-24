@@ -1,10 +1,9 @@
 package jewelry.dex.main
 
-import jewelry.dex.main.constant.dex.DexHeaderConstant
+import jewelry.dex.main.constant.dex.DexFile
 import jewelry.dex.main.constant.u1Array
 import jewelry.dex.main.constant.u4
 import jewelry.dex.main.ineterface.DexBase
-import jewelry.dex.os.OS
 import jewelry.dex.util.data.*
 import java.io.OutputStream
 
@@ -12,6 +11,16 @@ internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.
 
     internal val begin = partial.begin
     internal val size = partial.size
+
+    private var _map_list: MapList? = null
+
+    internal val map_list: MapList
+        get() {
+            if (_map_list == null) {
+                _map_list = MapList.create(MemoryReader(begin + holder.map_off))
+            }
+            return _map_list!!
+        }
 
     override fun onCreateHolder(): DexHeaderHolder {
         return DexHeaderHolder(this)
@@ -24,11 +33,11 @@ internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.
     companion object {
         internal class DexHeaderHolder(val header: DexHeader) : DexBase.Companion.DexBaseMemberHolder() {
 
-            var magic: u1Array = ByteArray(DexHeaderConstant.kMagicSize)
+            var magic: u1Array = ByteArray(DexFile.kMagicSize)
                 private set
             var checksum: u4 = 0  // See also location_checksum_
                 private set
-            var signature: u1Array = ByteArray(DexHeaderConstant.kSha1DigestSize)
+            var signature: u1Array = ByteArray(DexFile.kSha1DigestSize)
                 private set
             var file_size: u4 = 0  // size of entire file
                 private set
@@ -72,30 +81,31 @@ internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.
                 private set
 
             override fun onParse(offset: Int) {
-                val memory = OS.MEMORY
-                memory.copyTo(magic, offset)
-                checksum = memory.toInt32(offset + 8)
-                memory.copyTo(signature, offset + 12)
-                file_size = memory.toInt32(offset + 32)
-                header_size = memory.toInt32(offset + 36)
-                endian_tag = memory.toInt32(offset + 40)
-                link_size = memory.toInt32(offset + 44)
-                link_off = memory.toInt32(offset + 48)
-                map_off = memory.toInt32(offset + 52)
-                string_ids_size = memory.toInt32(offset + 56)
-                string_ids_off = memory.toInt32(offset + 60)
-                type_ids_size = memory.toInt32(offset + 64)
-                type_ids_off = memory.toInt32(offset + 68)
-                proto_ids_size = memory.toInt32(offset + 72)
-                proto_ids_off = memory.toInt32(offset + 76)
-                field_ids_size = memory.toInt32(offset + 80)
-                field_ids_off = memory.toInt32(offset + 84)
-                method_ids_size = memory.toInt32(offset + 88)
-                method_ids_off = memory.toInt32(offset + 92)
-                class_defs_size = memory.toInt32(offset + 96)
-                class_defs_off = memory.toInt32(offset + 100)
-                data_size = memory.toInt32(offset + 104)
-                data_off = memory.toInt32(offset + 108)
+
+                var reader = MemoryReader(offset)
+                reader.copyTo(magic)
+                checksum = reader.u4
+                reader.copyTo(signature)
+                file_size = reader.u4
+                header_size = reader.u4
+                endian_tag = reader.u4
+                link_size = reader.u4
+                link_off = reader.u4
+                map_off = reader.u4
+                string_ids_size = reader.u4
+                string_ids_off = reader.u4
+                type_ids_size = reader.u4
+                type_ids_off = reader.u4
+                proto_ids_size = reader.u4
+                proto_ids_off = reader.u4
+                field_ids_size = reader.u4
+                field_ids_off = reader.u4
+                method_ids_size = reader.u4
+                method_ids_off = reader.u4
+                class_defs_size = reader.u4
+                class_defs_off = reader.u4
+                data_size = reader.u4
+                data_off = reader.u4
             }
 
             override fun onVerify() {

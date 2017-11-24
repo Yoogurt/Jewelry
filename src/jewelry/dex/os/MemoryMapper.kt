@@ -1,13 +1,13 @@
 package jewelry.dex.os
 
-import jewelry.dex.util.data.toByteArray
-import jewelry.dex.util.data.toHex
-import jewelry.dex.util.data.toInt32
 import jewelry.dex.util.log.Log
 import jewelry.dex.util.memory.PAGE_END
 import jewelry.dex.util.memory.PAGE_OFFSET
 import jewelry.dex.util.memory.PAGE_SHIFT
-import java.io.*
+import java.io.File
+import java.io.FileInputStream
+import java.io.IOException
+import java.io.InputStream
 
 private val debug = false
 
@@ -132,7 +132,15 @@ internal object MemoryMapper {
             throw IllegalArgumentException("startAddress < 0")
 
         raf.skip(offset)
-        raf.read(OS.MEMORY, startAddr, length)
+        var read = raf.read(OS.MEMORY, startAddr, length)
+        var addressRead = startAddr
+        while (read > 0 && read != length) {
+            addressRead += read
+            read = raf.read(OS.MEMORY, addressRead, length)
+        }
+
+        if (addressRead < startAddr + length)
+            throw RuntimeException("mmap fail")
 
         val inc_Bit = (PAGE_END(length.toLong()) + startAddr).toInt() shr PAGE_SHIFT
 

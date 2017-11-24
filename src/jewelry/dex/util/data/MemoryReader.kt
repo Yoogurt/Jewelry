@@ -11,12 +11,12 @@ internal class MemoryReader constructor(val source: ByteArray, val startOffset: 
 
     constructor(startOffset: Int) : this(OS.MEMORY, startOffset)
 
-    val u1: u1
+    inline val u1: u1
         get() {
             return source[startOffset + offset++]
         }
 
-    val u2: u2
+    inline val u2: u2
         get() {
             try {
                 return source.toInt16(startOffset + offset)
@@ -25,7 +25,7 @@ internal class MemoryReader constructor(val source: ByteArray, val startOffset: 
             }
         }
 
-    val u4: u4
+    inline val u4: u4
         get() {
             try {
                 return source.toInt32(startOffset + offset)
@@ -34,7 +34,7 @@ internal class MemoryReader constructor(val source: ByteArray, val startOffset: 
             }
         }
 
-    val u8: u8
+    inline val u8: u8
         get() {
             try {
                 return source.toInt64(startOffset + offset)
@@ -43,18 +43,22 @@ internal class MemoryReader constructor(val source: ByteArray, val startOffset: 
             }
         }
 
-    val uint8_t: u1
+    inline val uint8_t: u1
         get() = u1
 
-    val uint16_t: u2
+    inline val uint16_t: u2
         get() = u2
 
-    val uint32_t: u4
+    inline val uint32_t: u4
         get() = u4
 
-    val uint648_t: u8
+    inline val uint64_t: u8
         get() = u8
 
+    fun copyTo(target: ByteArray , startIndex :Int = 0, length: Int = target.size) {
+        for(i in startIndex until startIndex + length)
+            target[i] = u1
+    }
 }
 
 fun main(vararg arg: String) {

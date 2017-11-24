@@ -37,19 +37,14 @@ fun unmmap(start: Int, size: Int): Int {
 
 fun dumpMemory(out: PrintStream = System.out, startIndex: Int = 0, endIndex: Int = OS.MEMORY.size) {
 
-    var line = startIndex shr 4
-    out.printf("%5s : ", line)
+    val startIndex = startIndex and (-1 xor 0x10)
 
-    for (i in startIndex % 16 downTo 1)
-        out.print("    ")
-
-    for (i in startIndex..endIndex - 1) {
-        out.print(OS.MEMORY[i].toHex() + " ")
-        if (++line % 16 == 0) {
-            out.println()
-            out.printf("%5x : ", line)
-        } else if (line % 8 == 0)
-            out.print("  ")
+    for (i in startIndex until endIndex) {
+        if (i % 16 == 0) {
+            out.printf("\n%5x : ", i)
+        } else if (i % 8 == 0)
+            out.print("   ")
+        out.print("${OS.MEMORY[i].toHex()} ")
     }
     out.println()
     out.flush()

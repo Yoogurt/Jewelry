@@ -32,11 +32,11 @@ fun ByteArray.toHex(startIndex: Int = 0, length: Int = size): String {
 }
 
 inline fun ByteArray.copyTo(target: ByteArray, startIndex: Int = 0, length: Int = target.size) =
-    System.arraycopy(this, startIndex, target, 0, length)
+        System.arraycopy(this, startIndex, target, 0, length)
 
 
 fun ByteArray.equals(obj: Int, startIndex: Int = 0, length: Int = size, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Boolean =
-     obj == toInt32(startIndex, length, isLittleEndian)
+        obj == toInt32(startIndex, length, isLittleEndian)
 
 
 inline fun ByteArray.startWith(other: ByteArray): Boolean = partialEquals(other, 0)
@@ -98,11 +98,11 @@ fun ByteArray.toInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Bool
 
 }
 
-//---------------------- SHORT ------------------------//
-
 fun ByteArray.toInt16(startIndex: Int = 0, length: Int = 2, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Short =
         toInt32(startIndex, length).toShort()
+//---------------------- SHORT ------------------------//
 
+fun Short.toHex() = toByteArray().toHex()
 
 fun Short.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): ByteArray {
     var `val` = this.toInt()
@@ -120,6 +120,7 @@ fun Short.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN
 }
 
 //---------------------- INT ------------------------//
+fun Int.toHex() = toByteArray().toHex()
 
 fun Int.assertAlignment() {
     if (this and 1 == 1)
@@ -146,6 +147,8 @@ fun Int.isAlignedParam(alignment: Int): Boolean {
 }
 
 //---------------------- LONG ------------------------//
+fun Long.toHex() = toByteArray().toHex()
+
 fun Long.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): ByteArray {
     var `val` = this
     val ret = ByteArray(8)

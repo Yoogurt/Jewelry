@@ -1,17 +1,17 @@
 package jewelry.dex.main
 
-import jewelry.dex.main.constant.dex.DexHeaderConstant
-import jewelry.dex.main.constant.u4
-import jewelry.dex.main.constant.u8
+import jewelry.dex.main.constant.*
+import jewelry.dex.main.constant.dex.DexFile
 import jewelry.dex.os.OS
 import jewelry.dex.util.data.*
 import jewelry.dex.util.log.error
 import jewelry.dex.util.log.errorVerify
 import jewelry.dex.util.log.log
-import jewelry.dex.util.reinterpret_cast
 import java.util.zip.Adler32
 
 internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHolder, val begin: Int, val size: Int, val location: String) {
+
+    internal var ptr: u4 = 0
 
     fun verify(checkAdler: Boolean = true) {
         checkHeader(checkAdler)
@@ -31,8 +31,8 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
     }
 
     private fun verifyMagic() {
-        if (holder.magic.startWith(DexHeaderConstant.kDexMagic)) {
-            if (!DexHeaderConstant.kDexMagicVersions.any {
+        if (holder.magic.startWith(DexFile.kDexMagic)) {
+            if (!DexFile.kDexMagicVersions.any {
                 return@any holder.magic.partialEquals(it, 4)
             }) {
                 holder.magic.error("Unknown Dex Version")
@@ -63,12 +63,12 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
 
     private fun checkEndian() {
         when (holder.endian_tag) {
-            DexHeaderConstant.kDexLittleEndianConstant -> {
+            DexFile.kDexLittleEndianConstant -> {
                 "Little Endian Dex File".log()
                 UtilGlobal.DEFAULT_LITTLE_ENDIAN = true
             }
 
-            DexHeaderConstant.kDexBigEndianConstant -> {
+            DexFile.kDexBigEndianConstant -> {
                 "Big Endian Dex File".log()
                 UtilGlobal.DEFAULT_LITTLE_ENDIAN = false
             }
@@ -78,7 +78,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
     }
 
     private fun checkHeaderSize() {
-        if (holder.header_size != DexHeaderConstant.kDexHeaderSize)
+        if (holder.header_size != DexFile.kDexHeaderSize)
             "Bad header size : ${holder.header_size}".error()
     }
 
@@ -107,10 +107,71 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
 
     /*---------------------------map----------------------------*/
     private fun checkMap() {
-        val map = reinterpret_cast(begin + holder.map_off)
-        checkListSize(map.start, 1, kMapListSize, "maplist content")
+        val start = begin + holder.map_off
+        val map = holder.header.map_list
+        checkListSize(start, 1, kMapListSize, "maplist content")
+
+        var items = map.list
+
+        val count = map.size
+        var last_offset = 0
+        var data_item_count = 0
+        var data_items_left = holder.data_size
+        var used_bits = 0
+
+        checkListSize(start + 4, count, kMapItemSize, "map size")
+
+        items.forEachIndexed { index, item ->
+            if (last_offset >= item.offset && index != 0)
+                "Out of order map item: $last_offset then ${item.offset}".error()
+
+            if (item.offset >= holder.file_size)
+                "Map item after end of file: ${item.offset}, size ${holder.file_size}".error()
 
 
+            if (isDataSectionType(item.type.toInt())) {
+                val icount = item.size
+                if (icount > data_items_left)
+                    "Too many items in data section: ${data_item_count + icount}".error()
+
+                data_items_left -= icount
+                data_item_count += icount
+            }
+
+            val bit = mapTypeToBitMask(item.type.toInt())
+            if (bit == 0)
+                "Unknown map section type ${item.type}".error()
+
+            if (used_bits and bit != 0)
+                "Duplicate map section of type ${item.type}".error()
+
+            used_bits = used_bits or bit
+            last_offset = item.offset
+        }
+
+        if (used_bits and mapTypeToBitMask(DexFile.kDexTypeHeaderItem) == 0)
+            "Map is missing header entry".error()
+
+        if (used_bits and mapTypeToBitMask(DexFile.kDexTypeMapList) == 0)
+            "Map is missing map_list entry".error()
+
+        if ((used_bits and mapTypeToBitMask(DexFile.kDexTypeStringIdItem) == 0) and ((holder.string_ids_off != 0) or (holder.string_ids_size != 0)))
+            "Map is missing string_ids entry".error()
+
+        if ((used_bits and mapTypeToBitMask(DexFile.kDexTypeTypeIdItem) == 0) and ((holder.type_ids_off != 0) or (holder.type_ids_size != 0)))
+            "Map is missing type_ids entry".error()
+
+        if ((used_bits and mapTypeToBitMask(DexFile.kDexTypeProtoIdItem) == 0) and ((holder.proto_ids_off != 0) or (holder.proto_ids_size != 0)))
+            "Map is missing proto_ids entry".error()
+
+        if ((used_bits and mapTypeToBitMask(DexFile.kDexTypeFieldIdItem) == 0) and ((holder.field_ids_off != 0) or (holder.field_ids_size != 0)))
+            "Map is missing field_ids entry".error()
+
+        if ((used_bits and mapTypeToBitMask(DexFile.kDexTypeMethodIdItem) == 0) and ((holder.method_ids_off != 0) or (holder.method_ids_size != 0)))
+            "Map is missing method_ids entry".error()
+
+        if ((used_bits and mapTypeToBitMask(DexFile.kDexTypeClassDefItem) == 0) and ((holder.class_defs_off != 0) or (holder.class_defs_size != 0)))
+            "Map is missing class_defs entry".error()
     }
 
     private fun checkListSize(start: u4, count: u4, elem_size: u4, label: String) {
@@ -128,5 +189,156 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             "Overflow in range for $label: ${range_start - file_start} for $count@$elem_size".error()
     }
 
-}
+    /*---------------------------intraSection----------------------------*/
 
+    private fun checkIntraSection() {
+        val map = holder.header.map_list
+        val items = map.list
+
+        var offset = 0
+        ptr = begin
+
+        // Check the items listed in the map.
+        items.forEachIndexed { count, item ->
+
+            val section_offset = item.offset
+            val section_count = item.size
+            val type = item.type
+
+            // Check for padding and overlap between items.
+            checkPadding(offset, section_offset)
+            if (offset > section_offset)
+                "Section overlap or out-of-order map: ${offset.toHex()}, ${section_offset.toHex()}".error()
+
+            when (type.toInt()) {
+                DexFile.kDexTypeHeaderItem -> {
+                    if (section_count != 1)
+                        "Multiple header items".error()
+                    if (section_offset != 0)
+                        "Header at ${section_offset.toHex()}, not at start of file".error()
+
+                    ptr = begin + holder.header_size
+                    offset = holder.header_size
+                }
+
+                DexFile.kDexTypeStringIdItem,
+                DexFile.kDexTypeTypeIdItem,
+                DexFile.kDexTypeProtoIdItem,
+                DexFile.kDexTypeFieldIdItem,
+                DexFile.kDexTypeMethodIdItem,
+                DexFile.kDexTypeClassDefItem -> {
+
+                }
+            }
+        }
+    }
+
+    private fun checkPadding(offset: size_t, aligned_offset: uint32_t) {
+        var offset = offset
+        if (offset < aligned_offset) {
+            checkListSize(begin + offset, aligned_offset - offset, 1, "section")
+
+            while (offset < aligned_offset) {
+                if (OS.MEMORY[ptr] != 0.toByte())
+                    "Non-zero padding ${OS.MEMORY[ptr].toHex()} before section start at ${offset.toByteArray().toHex()}".error()
+
+                ptr++
+                offset++
+            }
+        }
+    }
+
+    private fun checkIntraIdSection(offset: size_t, count: uint32_t, type: uint16_t) {
+        var expected_offset = 0
+        var expected_size = 0
+
+        when (type.toInt()) {
+            DexFile.kDexTypeStringIdItem -> {
+                expected_offset = holder.string_ids_off
+                expected_size = holder.string_ids_size
+            }
+            DexFile.kDexTypeTypeIdItem -> {
+                expected_offset = holder.type_ids_off
+                expected_size = holder.type_ids_size
+            }
+            DexFile.kDexTypeProtoIdItem -> {
+                expected_offset = holder.proto_ids_off
+                expected_size = holder.proto_ids_size
+            }
+            DexFile.kDexTypeFieldIdItem -> {
+                expected_offset = holder.field_ids_off
+                expected_size = holder.field_ids_size
+            }
+            DexFile.kDexTypeMethodIdItem -> {
+                expected_offset = holder.method_ids_off
+                expected_size = holder.method_ids_size
+            }
+            DexFile.kDexTypeClassDefItem -> {
+                expected_offset = holder.class_defs_off
+                expected_size = holder.class_defs_size
+            }
+            else -> "Bad type for id section: $type".error()
+        }
+
+        // Check that the offset and size are what were expected from the header.
+        if (offset != expected_offset)
+            "Bad offset for section: got ${offset.toHex()}, expected ${expected_offset.toHex()}".error()
+
+        if (count != expected_size)
+            "Bad size for section: got $count, expected $expected_size".error()
+
+        checkIntraSectionIterate(offset, count, type)
+    }
+
+    private fun checkIntraSectionIterate(offset: size_t, section_count: uint32_t, type: uint16_t) {
+        // Get the right alignment mask for the type of section.
+        var alignment_mask: size_t =
+                when (type.toInt()) {
+                    DexFile.kDexTypeClassDataItem,
+                    DexFile.kDexTypeStringDataItem,
+                    DexFile.kDexTypeDebugInfoItem,
+                    DexFile.kDexTypeAnnotationItem,
+                    DexFile.kDexTypeEncodedArrayItem ->
+                        1 - 1;
+                    else ->
+                        4 - 1;
+                }
+        (0 until section_count).forEach {
+
+        }
+    }
+
+    /*---------------------------interSection----------------------------*/
+    companion object {
+        private fun mapTypeToBitMask(map_type: uint32_t): uint32_t =
+                when (map_type) {
+                    DexFile.kDexTypeHeaderItem -> 1 shl 0
+                    DexFile.kDexTypeStringIdItem -> 1 shl 1
+                    DexFile.kDexTypeTypeIdItem -> 1 shl 2
+                    DexFile.kDexTypeProtoIdItem -> 1 shl 3
+                    DexFile.kDexTypeFieldIdItem -> 1 shl 4
+                    DexFile.kDexTypeMethodIdItem -> 1 shl 5
+                    DexFile.kDexTypeClassDefItem -> 1 shl 6
+                    DexFile.kDexTypeMapList -> 1 shl 7
+                    DexFile.kDexTypeTypeList -> 1 shl 8
+                    DexFile.kDexTypeAnnotationSetRefList -> 1 shl 9
+                    DexFile.kDexTypeAnnotationSetItem -> 1 shl 10
+                    DexFile.kDexTypeClassDataItem -> 1 shl 11
+                    DexFile.kDexTypeCodeItem -> 1 shl 12
+                    DexFile.kDexTypeStringDataItem -> 1 shl 13
+                    DexFile.kDexTypeDebugInfoItem -> 1 shl 14
+                    DexFile.kDexTypeAnnotationItem -> 1 shl 15
+                    DexFile.kDexTypeEncodedArrayItem -> 1 shl 16
+                    DexFile.kDexTypeAnnotationsDirectoryItem -> 1 shl 17
+                    else -> 0
+                }
+
+        private fun isDataSectionType(map_type: u4): Boolean =
+                when (map_type) {
+                    DexFile.kDexTypeHeaderItem, DexFile.kDexTypeStringIdItem, DexFile.kDexTypeTypeIdItem, DexFile.kDexTypeProtoIdItem, DexFile.kDexTypeFieldIdItem, DexFile.kDexTypeMethodIdItem, DexFile.kDexTypeClassDefItem ->
+                        false
+                    else -> true
+                }
+    }
+
+}

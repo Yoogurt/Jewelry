@@ -15,3 +15,5 @@ typealias u1Array = ByteArray
 typealias u2Array = ShortArray
 typealias u4Array = IntArray
 typealias u8Array = LongArray
+
+typealias size_t = u4

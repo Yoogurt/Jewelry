@@ -1,10 +1,14 @@
 package jewelry.dex.util
 
 import jewelry.dex.main.constant.dex.DexConstant
+import jewelry.dex.main.constant.u1
+import jewelry.dex.main.constant.u2
 import jewelry.dex.main.constant.u4
+import jewelry.dex.main.constant.u8
 import jewelry.dex.os.OS
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
+import kotlin.reflect.KProperty1
 
 fun isZipFile(file: String): Boolean {
     return try {
@@ -26,6 +30,22 @@ interface Offsetor<T> {
     operator fun set(index: u4, value: T)
 
     operator fun iterator(): Iterator<T>
+}
+
+fun sizeOf(primitive: Number): u4 {
+    return when (primitive) {
+        is u1 -> 1
+        is u2 -> 2
+        is u4 -> 4
+        is u8 -> 8
+        else -> -1
+    }
+}
+
+fun <T, R> sizeOf(type: KProperty1<T, R>): u4 {
+    return when (type) {
+        else -> -1
+    }
 }
 
 class OffsetorProvider<T>(val parent: Offsetor<T>, val start: u4) : Offsetor<T> {
@@ -100,12 +120,4 @@ fun reinterpret_cast(start: u4): ByteArrayOffsetor {
 }
 
 fun main(vararg arg: String) {
-    OS.MEMORY[3] = 12
-    OS.MEMORY[4] = 13
-    OS.MEMORY[5] = 14
-
-    var it = reinterpret_cast(1)
-    var it2 = OffsetorProvider<Byte>(it, 2).iterator()
-    for (i in 0 until 8)
-        println(it2.next())
 }

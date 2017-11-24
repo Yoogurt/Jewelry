@@ -21,10 +21,10 @@ inline fun String.error(out: ByteArray): Nothing {
     "$this ${out.toHex()}".error()
 }
 
-inline fun String.error(action: () -> Unit) {
-    action()
-    error()
-}
+//inline fun String.error(action: () -> Unit) {
+//    action()
+//    error()
+//}
 
 inline fun String.errorVerify(expect: ByteArray, got: ByteArray): Nothing {
     "$this , expect ${expect.toHex()} , but got ${got.toHex()}".error()

@@ -352,11 +352,26 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                 DexFile.kDexTypeTypeList -> {
                     ptr = checkList(TypeItem.size, "type_list", ptr)
                 }
-                DexFile.kDexTypeAnnotationSetRefList->{
+                DexFile.kDexTypeAnnotationSetRefList -> {
+                    ptr = checkList(AnnotationSetRefItem.size, "annotation_set_ref_list", ptr)
+                }
+                DexFile.kDexTypeAnnotationSetItem -> {
+                    ptr = checkList(4, "annotation_Set_item", ptr)
+                }
+                DexFile.kDexTypeClassDataItem -> {
 
                 }
             }
         }
+    }
+
+    private fun checkIntraClassDataItem() {
+        var have_class = false
+        var class_type_index: uint16_t
+        var class_access_flag: uint32_t
+    }
+
+    private fun <kStatic> checkIntraClassDataItemFields() where kStatic : Boolean {
     }
 
     /*---------------------------interSection----------------------------*/

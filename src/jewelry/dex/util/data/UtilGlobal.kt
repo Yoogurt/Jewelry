@@ -6,10 +6,10 @@ object UtilGlobal {
 
 //---------------------- BYTE ------------------------//
 
-fun Byte.toInt32(): Int = if (this < 0) this + 256 else toInt()
+fun Byte.toUInt32(): Int = if (this < 0) this + 256 else toInt()
 
 fun Byte.toHex(): String {
-    val internal = toInt32()
+    val internal = toUInt32()
 
     var result = Integer.toHexString(internal)
     if (result.length < 2)
@@ -36,7 +36,7 @@ inline fun ByteArray.copyTo(target: ByteArray, startIndex: Int = 0, length: Int 
 
 
 fun ByteArray.equals(obj: Int, startIndex: Int = 0, length: Int = size, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Boolean =
-        obj == toInt32(startIndex, length, isLittleEndian)
+        obj == toUInt32(startIndex, length, isLittleEndian)
 
 
 inline fun ByteArray.startWith(other: ByteArray): Boolean = partialEquals(other, 0)
@@ -50,13 +50,13 @@ fun ByteArray.partialEquals(other: ByteArray, startIndex: Int): Boolean {
     return true
 }
 
-fun ByteArray.toInt32(startIndex: Int = 0, length: Int = 4, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Int {
+fun ByteArray.toUInt32(startIndex: Int = 0, length: Int = 4, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Int {
 
     if (isLittleEndian) {
         var actullyValue = 0
 
         for (m in startIndex until startIndex + length) {
-            val wordValue = this[m].toInt32()
+            val wordValue = this[m].toUInt32()
 
             actullyValue = actullyValue or (wordValue shl ((m - startIndex) shl 3))
         }
@@ -66,23 +66,23 @@ fun ByteArray.toInt32(startIndex: Int = 0, length: Int = 4, isLittleEndian: Bool
         var actullyValue = 0
 
         for (m in startIndex until startIndex + length) {
-            actullyValue = actullyValue shl 8 or this[m].toInt32()
+            actullyValue = actullyValue shl 8 or this[m].toUInt32()
         }
         return actullyValue
     }
 }
 
 fun ByteArray.equals(obj: Long, startIndex: Int = 0, length: Int = size, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Boolean {
-    return obj == toInt64(startIndex, length, isLittleEndian)
+    return obj == toUInt64(startIndex, length, isLittleEndian)
 }
 
-fun ByteArray.toInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Long {
+fun ByteArray.toUInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Long {
 
     if (isLittleEndian) {
         var actullyValue = 0L
 
         for (m in startIndex until startIndex + length) {
-            val wordValue = this[m].toInt32().toLong()
+            val wordValue = this[m].toUInt32().toLong()
             actullyValue = actullyValue or (wordValue shl ((m - startIndex) shl 3))
         }
         return actullyValue
@@ -91,7 +91,7 @@ fun ByteArray.toInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Bool
         var actullyValue = 0L
 
         for (m in startIndex until startIndex + length) {
-            actullyValue = actullyValue shl 8 or this[m].toInt32().toLong()
+            actullyValue = actullyValue shl 8 or this[m].toUInt32().toLong()
         }
         return actullyValue
     }
@@ -99,7 +99,7 @@ fun ByteArray.toInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Bool
 }
 
 fun ByteArray.toInt16(startIndex: Int = 0, length: Int = 2, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Short =
-        toInt32(startIndex, length).toShort()
+        toUInt32(startIndex, length).toShort()
 //---------------------- SHORT ------------------------//
 
 fun Short.toHex() = toByteArray().toHex()
@@ -142,9 +142,41 @@ fun Int.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN):
     return ret
 }
 
-fun Int.isAlignedParam(alignment: Int): Boolean {
-    return this % alignment == 0
+fun Int.isAlignedParam(alignment: Int) = this % alignment == 0
+
+fun Int.compareUnsigned(other: Int): Int {
+    return if (this == other)
+        0
+    else {
+        if (this == 0)
+            -1
+        if (other == 0)
+            1
+
+        if (this > 0) {
+            if (other < 0)
+                -1
+            else {
+                if (this > other)
+                    1
+                else
+                    -1
+            }
+        } else {
+            if (other > 0)
+                1
+            else {
+                if (other < this)
+                    -1
+                else
+                    1
+            }
+        }
+    }
 }
+
+fun Int.toUnsigned(): Long =
+        if (this < 0) toLong() + (1L shl 32) else toLong()
 
 //---------------------- LONG ------------------------//
 fun Long.toHex() = toByteArray().toHex()
@@ -165,7 +197,8 @@ fun Long.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN)
 }
 
 fun main(vararg arg: String) {
-    var test = byteArrayOf(0x12, 0x34, 0x56, 0x12, 0x22, 0x33)
-    var test2 = byteArrayOf(0x12, 0x33, 0x56)
-    println(test.startWith(test2))
+//    var test = -122
+//    var test2 = -123
+//    println(test.compareUnsigned(test2))
+    println((Int.MIN_VALUE).toUnsigned())
 }

@@ -194,7 +194,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         var ptr = ptr
         checkListSize(ptr, 1, 4, label)
 
-        val count = OS.MEMORY.toInt32(ptr)
+        val count = OS.MEMORY.toUInt32(ptr)
         if (count > 0)
             checkListSize(ptr + 4, count, element_size, label)
 

@@ -28,7 +28,7 @@ internal class MemoryReader constructor(val source: ByteArray, val startOffset: 
     inline val u4: u4
         get() {
             try {
-                return source.toInt32(startOffset + offset)
+                return source.toUInt32(startOffset + offset)
             } finally {
                 offset += 4
             }
@@ -37,7 +37,7 @@ internal class MemoryReader constructor(val source: ByteArray, val startOffset: 
     inline val u8: u8
         get() {
             try {
-                return source.toInt64(startOffset + offset)
+                return source.toUInt64(startOffset + offset)
             } finally {
                 offset += 8
             }

@@ -1,9 +1,9 @@
 package jewelry.dex.util.log
 
-import jewelry.dex.main.DexException
-import jewelry.dex.main.debug
 import jewelry.dex.util.data.toByteArray
 import jewelry.dex.util.data.toHex
+import src.jewelry.marik.dex.DexException
+import src.jewelry.marik.dex.debug
 
 private var out = System.out
 
@@ -11,6 +11,10 @@ private var out = System.out
 
 inline fun String.log() {
     Log.i(this)
+}
+
+inline fun String.warning() {
+    Log.w(this)
 }
 
 inline fun String.error(): Nothing {
@@ -57,11 +61,16 @@ inline fun Number.error(msg: String): Nothing {
 object Log {
     fun i(msg: String) {
         if (debug)
-            out.println("* [I] $msg")
+            out.println("[I] $msg")
+    }
+
+    fun w(msg: String) {
+        if (debug)
+            out.println("[W] $msg")
     }
 
     fun e(msg: String) {
         if (debug)
-            out.println("* [E] $msg")
+            out.println("[E] $msg")
     }
 }

@@ -1,6 +1,6 @@
-package jewelry.dex.main
+package src.jewelry.marik.dex
 
-class DexPartial(val dex: Dex, val begin: Int, val size: Int) {
+internal class DexPartial(val dex: Dex, val begin: Int, val size: Int) {
 
     internal lateinit var header: DexHeader
 

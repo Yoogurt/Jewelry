@@ -1,14 +1,21 @@
 package jewelry.dex.util
 
-import jewelry.dex.main.constant.dex.DexConstant
 import jewelry.dex.main.constant.u1
 import jewelry.dex.main.constant.u2
 import jewelry.dex.main.constant.u4
 import jewelry.dex.main.constant.u8
 import jewelry.dex.os.OS
+import src.jewelry.marik.dex.constant.DexConstant
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import kotlin.reflect.KProperty1
+
+const val nullptr = 0
+
+fun CHECK(ret: Boolean) {
+    if (!ret)
+        throw AssertionError()
+}
 
 fun isZipFile(file: String): Boolean {
     return try {

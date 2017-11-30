@@ -1,12 +1,11 @@
-package jewelry.dex.main
+package src.jewelry.marik.dex
 
-import jewelry.dex.util.log.log
 import jewelry.dex.os.PROT_NONE
 import jewelry.dex.os.mmap
 import jewelry.dex.util.isDexEntry
 import jewelry.dex.util.isZipFile
 import jewelry.dex.util.log.error
-import java.io.IOException
+import jewelry.dex.util.log.log
 import java.util.*
 import java.util.jar.JarFile
 
@@ -18,9 +17,9 @@ class Dex private constructor(filePath: String) {
 
     internal val mDexPartial = LinkedList<DexPartial>()
 
-    private fun parse(): Dex {
+    private fun parse(): src.jewelry.marik.dex.Dex {
         if (mDexPartial.size < 1)
-            "no dex found in ${location}".error()
+            "no marik found in ${location}".error()
         mDexPartial.forEach {
             it.parse()
         }
@@ -28,10 +27,10 @@ class Dex private constructor(filePath: String) {
     }
 
     companion object {
-        private val sOpenDexes: MutableList<Dex> = LinkedList<Dex>()
+        private val sOpenDexes: MutableList<src.jewelry.marik.dex.Dex> = LinkedList<Dex>()
 
         @Synchronized
-        fun open(filePath: String): Dex {
+        fun open(filePath: String): src.jewelry.marik.dex.Dex {
             return if (isZipFile(filePath)) {
                 openZip(filePath)
             } else {
@@ -39,7 +38,7 @@ class Dex private constructor(filePath: String) {
             }
         }
 
-        private fun openZip(filePath: String): Dex {
+        private fun openZip(filePath: String): src.jewelry.marik.dex.Dex {
             val dex = Dex(filePath)
             val jarFile = JarFile(filePath)
             jarFile.entries().iterator().forEach {
@@ -51,7 +50,7 @@ class Dex private constructor(filePath: String) {
 
                     dex.mDexPartial.add(DexPartial(dex, mmapAddress, it.size.toInt()))
 
-                    if (debug)
+                    if (src.jewelry.marik.dex.debug)
                         "${it.name} mmap at $mmapAddress".log()
                 }
             }
@@ -59,12 +58,12 @@ class Dex private constructor(filePath: String) {
             return dex.parse()
         }
 
-        private fun openFile(filePath: String): Dex {
+        private fun openFile(filePath: String): src.jewelry.marik.dex.Dex {
             try {
-                var dex = Dex(filePath)
+                var dex = src.jewelry.marik.dex.Dex(filePath)
                 sOpenDexes.add(dex)
                 return dex.parse()
-            } catch (e: IOException) {
+            } catch (e: java.io.IOException) {
                 throw DexException(e)
             }
         }

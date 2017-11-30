@@ -1,12 +1,12 @@
-package jewelry.dex.main
+package src.jewelry.marik.dex
 
 import jewelry.dex.main.constant.*
-import jewelry.dex.main.constant.dex.DexFile
 import jewelry.dex.os.OS
 import jewelry.dex.util.data.*
 import jewelry.dex.util.log.error
 import jewelry.dex.util.log.errorVerify
 import jewelry.dex.util.log.log
+import src.jewelry.marik.dex.constant.DexFile
 import java.util.zip.Adler32
 
 internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHolder, val begin: Int, val size: Int, val location: String) {
@@ -110,7 +110,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
     private fun checkMap() {
         val start = begin + holder.map_off
         val map = holder.header.map_list
-        checkListSize(start, 1, MapItem.size, "maplist content")
+        checkListSize(start, 1, MapItem.Companion.size, "maplist content")
 
         var items = map.list
 
@@ -120,7 +120,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         var data_items_left = holder.data_size
         var used_bits = 0
 
-        checkListSize(start + 4, count, MapItem.size, "map size")
+        checkListSize(start + 4, count, MapItem.Companion.size, "map size")
 
         items.forEachIndexed { index, item ->
             if (last_offset >= item.offset && index != 0)
@@ -326,49 +326,69 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
 
             when (type.toInt()) {
                 DexFile.kDexTypeStringIdItem -> {
-                    checkListSize(ptr, 1, StringId.size, "string_ids")
-                    ptr += StringId.size
+                    checkListSize(ptr, 1, StringId.Companion.size, "string_ids")
+                    ptr += StringId.Companion.size
                 }
                 DexFile.kDexTypeTypeIdItem -> {
-                    checkListSize(ptr, 1, TypeId.size, "type_ids")
-                    ptr += TypeId.size
+                    checkListSize(ptr, 1, TypeId.Companion.size, "type_ids")
+                    ptr += TypeId.Companion.size
                 }
                 DexFile.kDexTypeProtoIdItem -> {
-                    checkListSize(ptr, 1, ProtoId.size, "proto_ids")
-                    ptr += ProtoId.size
+                    checkListSize(ptr, 1, ProtoId.Companion.size, "proto_ids")
+                    ptr += ProtoId.Companion.size
                 }
                 DexFile.kDexTypeFieldIdItem -> {
-                    checkListSize(ptr, 1, FieldId.size, "field_ids")
-                    ptr += FieldId.size
+                    checkListSize(ptr, 1, FieldId.Companion.size, "field_ids")
+                    ptr += FieldId.Companion.size
                 }
                 DexFile.kDexTypeMethodIdItem -> {
-                    checkListSize(ptr, 1, MethodId.size, "method_ids")
-                    ptr += MethodId.size
+                    checkListSize(ptr, 1, MethodId.Companion.size, "method_ids")
+                    ptr += MethodId.Companion.size
                 }
                 DexFile.kDexTypeClassDefItem -> {
-                    checkListSize(ptr, 1, ClassDef.size, "class_defs")
-                    ptr += ClassDef.size
+                    checkListSize(ptr, 1, ClassDef.Companion.size, "class_defs")
+                    ptr += ClassDef.Companion.size
                 }
                 DexFile.kDexTypeTypeList -> {
-                    ptr = checkList(TypeItem.size, "type_list", ptr)
+                    ptr = checkList(TypeItem.Companion.size, "type_list", ptr)
                 }
                 DexFile.kDexTypeAnnotationSetRefList -> {
-                    ptr = checkList(AnnotationSetRefItem.size, "annotation_set_ref_list", ptr)
+                    ptr = checkList(AnnotationSetRefItem.Companion.size, "annotation_set_ref_list", ptr)
                 }
                 DexFile.kDexTypeAnnotationSetItem -> {
                     ptr = checkList(4, "annotation_Set_item", ptr)
                 }
                 DexFile.kDexTypeClassDataItem -> {
-
+                    checkIntraClassDataItem()
                 }
             }
         }
     }
 
     private fun checkIntraClassDataItem() {
-        var have_class = false
-        var class_type_index: uint16_t
-        var class_access_flag: uint32_t
+        val it = ClassDataItemIterator(holder.header.partial.dex, ptr)
+        var prev_index: uint32_t = 0
+
+        while (it.hasNextStaticField) {
+            val curr_index = it.memberIndex
+            if (curr_index < prev_index) {
+                "out-of-order static field indexes $prev_index and $curr_index".error()
+            }
+            prev_index = curr_index
+            checkClassDataItemField(curr_index, it.rawMemberAccessFlags, true)
+            it.next
+        }
+
+        prev_index = 0
+        while (it.hasNextInstanceField) {
+            val curr_index = it.memberIndex
+            if (curr_index < ptr)
+            it.next
+        }
+    }
+
+    private fun checkClassDataItemField(idx: uint32_t, access_flag: uint32_t, expect_static: Boolean) {
+
     }
 
     private fun <kStatic> checkIntraClassDataItemFields() where kStatic : Boolean {

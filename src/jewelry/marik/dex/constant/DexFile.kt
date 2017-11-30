@@ -1,4 +1,4 @@
-package jewelry.dex.main.constant.dex
+package src.jewelry.marik.dex.constant
 
 import jewelry.dex.main.constant.u1Array
 
@@ -65,7 +65,7 @@ const val kAccProtected = 0x0004  // field, method, ic
 const val kAccStatic = 0x0008  // field, method, ic
 const val kAccFinal = 0x0010  // class, field, method, ic
 const val kAccSynchronized = 0x0020  // method (only allowed on natives)
-const val kAccSuper = 0x0020  // class (not used in dex)
+const val kAccSuper = 0x0020  // class (not used in marik)
 const val kAccVolatile = 0x0040  // field
 const val kAccBridge = 0x0040  // method (1.5)
 const val kAccTransient = 0x0080  // field
@@ -80,20 +80,20 @@ const val kAccEnum = 0x4000  // class, field, ic (1.5)
 
 const val kAccJavaFlagsMask = 0xffff  // bits set from Java sources (low 16)
 
-const val kAccConstructor = 0x00010000  // method (dex only) <(cl)init>
-const val kAccDeclaredSynchronized = 0x00020000  // method (dex only)
-const val kAccClassIsProxy = 0x00040000  // class  (dex only)
+const val kAccConstructor = 0x00010000  // method (marik only) <(cl)init>
+const val kAccDeclaredSynchronized = 0x00020000  // method (marik only)
+const val kAccClassIsProxy = 0x00040000  // class  (marik only)
 // Used by a method to denote that its execution does not need to go through slow path interpreter.
-const val kAccSkipAccessChecks = 0x00080000  // method (dex only)
+const val kAccSkipAccessChecks = 0x00080000  // method (marik only)
 // Used by a class to denote that the verifier has attempted to check it at least once.
 const val kAccVerificationAttempted = 0x00080000  // class (runtime)
-const val kAccFastNative = 0x00080000  // method (dex only)
+const val kAccFastNative = 0x00080000  // method (marik only)
 // This is set by the class linker during LinkInterfaceMethods. It is used by a method to represent
 // that it was copied from its declaring class into another class. All methods marked kAccMiranda
 // and kAccDefaultConflict will have this bit set. Any kAccDefault method contained in the methods_
 // array of a concrete class will also have this bit set.
 const val kAccCopied = 0x00100000  // method (runtime)
-const val kAccMiranda = 0x00200000  // method (dex only)
+const val kAccMiranda = 0x00200000  // method (marik only)
 const val kAccDefault = 0x00400000  // method (runtime)
 // This is set by the class linker during LinkInterfaceMethods. Prior to that point we do not know
 // if any particular method needs to be a default conflict. Used to figure out at runtime if

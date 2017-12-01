@@ -1,10 +1,15 @@
-package src.jewelry.marik.dex
+package jewelry.marik.dex
 
-import jewelry.dex.util.log.error
-import jewelry.marik.dex.MapList
-import src.jewelry.marik.dex.constant.DexFile
+import jewelry.marik.util.log.error
+import jewelry.marik.dex.base.DexBase
+import jewelry.marik.dex.constant.alais.u1Array
+import jewelry.marik.dex.constant.alais.u4
+import jewelry.marik.dex.constant.DexFile
+import jewelry.marik.util.data.MemoryReader
 
-internal class DexHeader(val partial: DexPartial) : jewelry.dex.main.ineterface.DexBase<DexHeader.Companion.DexHeaderHolder>(partial.begin) {
+private const val verify = false
+
+internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.DexHeaderHolder>(partial.begin) {
 
     internal val begin = partial.begin
     internal val size = partial.size
@@ -14,13 +19,13 @@ internal class DexHeader(val partial: DexPartial) : jewelry.dex.main.ineterface.
     internal val map_list: MapList
         get() {
             if (_map_list == null) {
-                _map_list = MapList.Companion.create(jewelry.dex.util.data.MemoryReader(begin + holder.map_off))
+                _map_list = MapList.Companion.create(MemoryReader(begin + holder.map_off))
             }
             return _map_list!!
         }
 
-    override fun onCreateHolder(): src.jewelry.marik.dex.DexHeader.Companion.DexHeaderHolder {
-        return src.jewelry.marik.dex.DexHeader.Companion.DexHeaderHolder(this)
+    override fun onCreateHolder(): DexHeaderHolder {
+        return DexHeaderHolder(this)
     }
 
     override fun onWriteTo(out: java.io.OutputStream) {
@@ -28,66 +33,66 @@ internal class DexHeader(val partial: DexPartial) : jewelry.dex.main.ineterface.
     }
 
     companion object {
-        internal class DexHeaderHolder(val header: src.jewelry.marik.dex.DexHeader) : jewelry.dex.main.ineterface.DexBase.Companion.DexBaseMemberHolder() {
+        internal class DexHeaderHolder(val header: DexHeader) : DexBaseMemberHolder() {
 
-            var magic: jewelry.dex.main.constant.u1Array = ByteArray(DexFile.kMagicSize)
+            var magic: u1Array = ByteArray(DexFile.kMagicSize)
                 private set
-            var checksum: jewelry.dex.main.constant.u4 = 0  // See also location_checksum_
+            var checksum: u4 = 0  // See also location_checksum_
                 private set
-            var signature: jewelry.dex.main.constant.u1Array = ByteArray(DexFile.kSha1DigestSize)
+            var signature: u1Array = ByteArray(DexFile.kSha1DigestSize)
                 private set
-            var file_size: jewelry.dex.main.constant.u4 = 0  // size of entire file
+            var file_size: u4 = 0  // size of entire file
                 private set
-            var header_size: jewelry.dex.main.constant.u4 = 0  // start to start of next section
+            var header_size: u4 = 0  // start to start of next section
                 private set
-            var endian_tag: jewelry.dex.main.constant.u4 = 0
+            var endian_tag: u4 = 0
                 private set
-            var link_size: jewelry.dex.main.constant.u4 = 0  // unused
+            var link_size: u4 = 0  // unused
                 private set
-            var link_off: jewelry.dex.main.constant.u4 = 0  // unused
+            var link_off: u4 = 0  // unused
                 private set
-            var map_off: jewelry.dex.main.constant.u4 = 0  // unused
+            var map_off: u4 = 0  // unused
                 private set
-            var string_ids_size: jewelry.dex.main.constant.u4 = 0  // number of StringIds
+            var string_ids_size: u4 = 0  // number of StringIds
                 private set
-            var string_ids_off: jewelry.dex.main.constant.u4 = 0  // file start of StringIds array
+            var string_ids_off: u4 = 0  // file start of StringIds array
                 private set
-            var type_ids_size: jewelry.dex.main.constant.u4 = 0  // number of TypeIds, we don't support more than 65535
+            var type_ids_size: u4 = 0  // number of TypeIds, we don't support more than 65535
                 private set(value) {
                     if (value > 65535)
                         "type_ids_size larger than 65535".error()
                     field = value
                 }
-            var type_ids_off: jewelry.dex.main.constant.u4 = 0  // file start of TypeIds array
+            var type_ids_off: u4 = 0  // file start of TypeIds array
                 private set
-            var proto_ids_size: jewelry.dex.main.constant.u4 = 0  // number of ProtoIds, we don't support more than 65535
+            var proto_ids_size: u4 = 0  // number of ProtoIds, we don't support more than 65535
                 private set(value) {
                     if (value > 65535)
                         "proto_ids_size larger than 65535".error()
                     field = value
                 }
-            var proto_ids_off: jewelry.dex.main.constant.u4 = 0  // file start of ProtoIds array
+            var proto_ids_off: u4 = 0  // file start of ProtoIds array
                 private set
-            var field_ids_size: jewelry.dex.main.constant.u4 = 0  // number of FieldIds
+            var field_ids_size: u4 = 0  // number of FieldIds
                 private set
-            var field_ids_off: jewelry.dex.main.constant.u4 = 0  // file start of FieldIds array
+            var field_ids_off: u4 = 0  // file start of FieldIds array
                 private set
-            var method_ids_size: jewelry.dex.main.constant.u4 = 0  // number of MethodIds
+            var method_ids_size: u4 = 0  // number of MethodIds
                 private set
-            var method_ids_off: jewelry.dex.main.constant.u4 = 0  // file start of MethodIds array
+            var method_ids_off: u4 = 0  // file start of MethodIds array
                 private set
-            var class_defs_size: jewelry.dex.main.constant.u4 = 0  // number of ClassDefs
+            var class_defs_size: u4 = 0  // number of ClassDefs
                 private set
-            var class_defs_off: jewelry.dex.main.constant.u4 = 0  // file start of ClassDef array
+            var class_defs_off: u4 = 0  // file start of ClassDef array
                 private set
-            var data_size: jewelry.dex.main.constant.u4 = 0  // unused
+            var data_size: u4 = 0  // unused
                 private set
-            var data_off: jewelry.dex.main.constant.u4 = 0  // unused
+            var data_off: u4 = 0  // unused
                 private set
 
             override fun onParse(offset: Int) {
 
-                var reader = jewelry.dex.util.data.MemoryReader(offset)
+                var reader = MemoryReader(offset)
                 reader.copyTo(magic)
                 checksum = reader.u4
                 reader.copyTo(signature)
@@ -115,6 +120,7 @@ internal class DexHeader(val partial: DexPartial) : jewelry.dex.main.ineterface.
 
             @Throws(DexException::class)
             override fun onVerify() {
+                if (verify)
                     DexVerifier(this, header.begin, header.size, header.partial.dex.location).verify(false)
             }
         }

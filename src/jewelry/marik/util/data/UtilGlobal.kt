@@ -1,6 +1,4 @@
-package jewelry.dex.util.data
-
-import jewelry.dex.main.constant.uint32_t
+package jewelry.marik.util.data
 
 object UtilGlobal {
     var DEFAULT_LITTLE_ENDIAN: Boolean = true

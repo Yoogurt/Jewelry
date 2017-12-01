@@ -1,4 +1,4 @@
-package src.jewelry.marik.dex
+package jewelry.marik.dex
 
 internal class DexPartial(val dex: Dex, val begin: Int, val size: Int) {
 

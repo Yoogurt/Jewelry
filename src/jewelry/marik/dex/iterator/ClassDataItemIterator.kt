@@ -1,14 +1,15 @@
-package jewelry.dex.main.constant
+package jewelry.marik.dex.iterator
 
-import jewelry.dex.main.constant.utils.DecodeUnsignedLeb128
-import jewelry.dex.util.CHECK
-import jewelry.dex.util.log.warning
-import jewelry.dex.util.nullptr
-import src.jewelry.marik.dex.Dex
-import src.jewelry.marik.dex.constant.kAccFinal
-import src.jewelry.marik.dex.constant.kAccNative
-import src.jewelry.marik.dex.constant.kAccValidFieldFlags
-import src.jewelry.marik.dex.constant.kAccValidMethodFlags
+import jewelry.marik.dex.constant.alais.uint32_t
+import jewelry.marik.dex.constant.DecodeUnsignedLeb128
+import jewelry.marik.util.CHECK
+import jewelry.marik.util.log.warning
+import jewelry.marik.util.nullptr
+import jewelry.marik.dex.Dex
+import jewelry.marik.dex.constant.kAccFinal
+import jewelry.marik.dex.constant.kAccNative
+import jewelry.marik.dex.constant.kAccValidFieldFlags
+import jewelry.marik.dex.constant.kAccValidMethodFlags
 
 internal open class ClassDataItemIterator(val dexFile: Dex, var ptr_pos: uint32_t) {
 

@@ -1,7 +1,7 @@
-package jewelry.dex.os
+package jewelry.marik.os
 
-import jewelry.dex.util.data.toHex
-import jewelry.dex.util.memory.PAGE_SIZE
+import jewelry.marik.util.data.toHex
+import jewelry.marik.util.memory.PAGE_SIZE
 import java.io.InputStream
 import java.io.PrintStream
 

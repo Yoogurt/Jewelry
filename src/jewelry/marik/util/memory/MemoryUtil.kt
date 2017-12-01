@@ -1,4 +1,4 @@
-package jewelry.dex.util.memory
+package jewelry.marik.util.memory
 
 val PAGE_MASK = (4096L - 1)
 val PAGE_SIZE = 4096

@@ -1,4 +1,4 @@
-package jewelry.dex.main.constant
+package jewelry.marik.dex.constant.alais
 
 typealias u1 = Byte
 typealias u2 = Short

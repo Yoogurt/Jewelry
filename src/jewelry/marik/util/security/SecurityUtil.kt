@@ -1,7 +1,7 @@
-package jewelry.dex.util.security
+package jewelry.marik.util.security
 
-import jewelry.dex.os.OS
-import jewelry.dex.util.data.toHex
+import jewelry.marik.os.OS
+import jewelry.marik.util.data.toHex
 import java.security.MessageDigest
 
 object SecurityUtil {

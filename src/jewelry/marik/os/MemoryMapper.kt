@@ -1,9 +1,9 @@
-package jewelry.dex.os
+package jewelry.marik.os
 
-import jewelry.dex.util.log.Log
-import jewelry.dex.util.memory.PAGE_END
-import jewelry.dex.util.memory.PAGE_OFFSET
-import jewelry.dex.util.memory.PAGE_SHIFT
+import jewelry.marik.util.log.Log
+import jewelry.marik.util.memory.PAGE_END
+import jewelry.marik.util.memory.PAGE_OFFSET
+import jewelry.marik.util.memory.PAGE_SHIFT
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException

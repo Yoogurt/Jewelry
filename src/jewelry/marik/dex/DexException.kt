@@ -1,4 +1,4 @@
-package src.jewelry.marik.dex
+package jewelry.marik.dex
 
 class DexException : Exception {
     constructor() : super()

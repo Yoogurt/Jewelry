@@ -1,14 +1,15 @@
-package src.jewelry.marik.dex
+package jewelry.marik.dex
 
-import jewelry.dex.main.constant.*
-import jewelry.dex.os.OS
-import jewelry.dex.util.CHECK
+import jewelry.marik.os.OS
+import jewelry.marik.util.CHECK
 import jewelry.dex.util.data.*
-import jewelry.dex.util.log.error
-import jewelry.dex.util.log.errorVerify
-import jewelry.dex.util.log.log
-import jewelry.marik.dex.*
-import src.jewelry.marik.dex.constant.DexFile
+import jewelry.marik.util.log.error
+import jewelry.marik.util.log.errorVerify
+import jewelry.marik.util.log.log
+import jewelry.marik.dex.constant.alais.*
+import jewelry.marik.dex.iterator.ClassDataItemIterator
+import jewelry.marik.dex.constant.DexFile
+import jewelry.marik.util.data.*
 import java.util.zip.Adler32
 
 internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHolder, val begin: Int, val size: Int, val location: String) {
@@ -233,7 +234,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         if (count > 0)
             checkListSize(ptr + 4, count, element_size, label)
 
-        ptr += (4 + count * element_size).upAlign()
+        ptr += (4 + count * element_size) * 4
         return ptr
     }
 

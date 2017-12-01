@@ -1,7 +1,8 @@
-package jewelry.dex.util.data
+package jewelry.marik.util.data
 
-import jewelry.dex.main.constant.*
-import jewelry.dex.os.OS
+import jewelry.dex.util.data.*
+import jewelry.marik.os.OS
+import jewelry.marik.dex.constant.alais.*
 import java.util.*
 
 internal class MemoryReader constructor(val source: ByteArray, val startOffset: Int) {

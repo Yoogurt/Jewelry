@@ -1,6 +1,6 @@
-package src.jewelry.marik.dex.constant
+package jewelry.marik.dex.constant
 
-import jewelry.dex.main.constant.u1Array
+import jewelry.marik.dex.constant.alais.u1Array
 
 object DexFile {
 

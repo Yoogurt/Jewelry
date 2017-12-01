@@ -1,13 +1,13 @@
-package jewelry.dex.util
+package jewelry.marik.util
 
-import jewelry.dex.main.constant.u1
-import jewelry.dex.main.constant.u2
-import jewelry.dex.main.constant.u4
-import jewelry.dex.main.constant.u8
-import jewelry.dex.os.OS
-import src.jewelry.marik.dex.constant.DexConstant
-import src.jewelry.marik.dex.constant.DexConstant.kClassesEntryEnd
-import src.jewelry.marik.dex.constant.DexConstant.kClassesEntryStart
+import jewelry.marik.dex.constant.alais.u1
+import jewelry.marik.dex.constant.alais.u2
+import jewelry.marik.dex.constant.alais.u4
+import jewelry.marik.dex.constant.alais.u8
+import jewelry.marik.os.OS
+import jewelry.marik.dex.constant.DexConstant
+import jewelry.marik.dex.constant.DexConstant.kClassesEntryEnd
+import jewelry.marik.dex.constant.DexConstant.kClassesEntryStart
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import kotlin.reflect.KProperty1

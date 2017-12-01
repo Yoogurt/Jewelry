@@ -1,9 +1,9 @@
-package jewelry.dex.util.log
+package jewelry.marik.util.log
 
-import jewelry.dex.util.data.toByteArray
-import jewelry.dex.util.data.toHex
-import src.jewelry.marik.dex.DexException
-import src.jewelry.marik.dex.debug
+import jewelry.marik.util.data.toByteArray
+import jewelry.marik.util.data.toHex
+import jewelry.marik.dex.DexException
+import jewelry.marik.dex.debug
 
 private var out = System.out
 

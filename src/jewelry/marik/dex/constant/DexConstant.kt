@@ -1,4 +1,4 @@
-package src.jewelry.marik.dex.constant
+package jewelry.marik.dex.constant
 
 object DexConstant{
     const val kClassesEntryStart = "class"

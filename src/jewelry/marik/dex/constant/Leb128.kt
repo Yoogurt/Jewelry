@@ -1,8 +1,8 @@
-package jewelry.dex.main.constant.utils
+package jewelry.marik.dex.constant
 
-import jewelry.dex.main.constant.uint32_t
-import jewelry.dex.os.OS
-import jewelry.dex.util.data.toUInt32
+import jewelry.marik.dex.constant.alais.uint32_t
+import jewelry.marik.os.OS
+import jewelry.marik.util.data.toUInt32
 
 internal data class Leb128Result(val ptr: uint32_t, val ret: uint32_t)
 

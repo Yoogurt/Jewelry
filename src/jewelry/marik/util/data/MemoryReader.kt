@@ -1,20 +1,18 @@
 package jewelry.dex.util.data
 
-import jewelry.dex.main.constant.u1
-import jewelry.dex.main.constant.u2
-import jewelry.dex.main.constant.u4
-import jewelry.dex.main.constant.u8
+import jewelry.dex.main.constant.*
 import jewelry.dex.os.OS
+import java.util.*
 
 internal class MemoryReader constructor(val source: ByteArray, val startOffset: Int) {
-    var offset = 0
+    private val mStack = Stack<uint32_t>()
+
+    private var offset = 0
 
     constructor(startOffset: Int) : this(OS.MEMORY, startOffset)
 
     inline val u1: u1
-        get() {
-            return source[startOffset + offset++]
-        }
+        get() = source[startOffset + offset++]
 
     inline val u2: u2
         get() {
@@ -55,9 +53,20 @@ internal class MemoryReader constructor(val source: ByteArray, val startOffset: 
     inline val uint64_t: u8
         get() = u8
 
-    fun copyTo(target: ByteArray , startIndex :Int = 0, length: Int = target.size) {
-        for(i in startIndex until startIndex + length)
-            target[i] = u1
+    fun copyTo(target: ByteArray, startIndex: Int = 0, length: Int = target.size) =
+            (startIndex until startIndex + length).forEach { target[it] = u1 }
+
+    @Synchronized
+    fun save(new: uint32_t): MemoryReader {
+        mStack.push(offset)
+        offset = new
+        return this
+    }
+
+    @Synchronized
+    fun restore(): MemoryReader {
+        offset = mStack.pop()
+        return this
     }
 }
 

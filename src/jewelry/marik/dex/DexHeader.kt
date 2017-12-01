@@ -1,5 +1,7 @@
 package src.jewelry.marik.dex
 
+import jewelry.dex.util.log.error
+import jewelry.marik.dex.MapList
 import src.jewelry.marik.dex.constant.DexFile
 
 internal class DexHeader(val partial: DexPartial) : jewelry.dex.main.ineterface.DexBase<DexHeader.Companion.DexHeaderHolder>(partial.begin) {
@@ -51,11 +53,19 @@ internal class DexHeader(val partial: DexPartial) : jewelry.dex.main.ineterface.
             var string_ids_off: jewelry.dex.main.constant.u4 = 0  // file start of StringIds array
                 private set
             var type_ids_size: jewelry.dex.main.constant.u4 = 0  // number of TypeIds, we don't support more than 65535
-                private set
+                private set(value) {
+                    if (value > 65535)
+                        "type_ids_size larger than 65535".error()
+                    field = value
+                }
             var type_ids_off: jewelry.dex.main.constant.u4 = 0  // file start of TypeIds array
                 private set
             var proto_ids_size: jewelry.dex.main.constant.u4 = 0  // number of ProtoIds, we don't support more than 65535
-                private set
+                private set(value) {
+                    if (value > 65535)
+                        "proto_ids_size larger than 65535".error()
+                    field = value
+                }
             var proto_ids_off: jewelry.dex.main.constant.u4 = 0  // file start of ProtoIds array
                 private set
             var field_ids_size: jewelry.dex.main.constant.u4 = 0  // number of FieldIds
@@ -103,8 +113,9 @@ internal class DexHeader(val partial: DexPartial) : jewelry.dex.main.ineterface.
                 data_off = reader.u4
             }
 
+            @Throws(DexException::class)
             override fun onVerify() {
-                DexVerifier(this, header.begin, header.size, header.partial.dex.location).verify(false)
+                    DexVerifier(this, header.begin, header.size, header.partial.dex.location).verify(false)
             }
         }
     }

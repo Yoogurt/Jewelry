@@ -47,15 +47,22 @@ inline fun ByteArray.errorVerify(expect: ByteArray, msg: String): Nothing {
     msg.errorVerify(expect, this)
 }
 
-inline fun Number.error(msg: String): Nothing {
-    when (this) {
-        is Byte -> "$msg ${toHex()}".error()
-        is Short -> "$msg ${this.toByteArray().toHex()}".error()
-        is Int -> "$msg ${this.toByteArray().toHex()}".error()
-        is Long -> "$msg ${this.toByteArray().toHex()}".error()
-        else ->
-            "$msg".error()
-    }
+inline fun Number.log(msg: String) = when (this) {
+    is Byte -> "$msg ${toHex()} ($this)".log()
+    is Short -> "$msg ${this.toByteArray().toHex()} ($this)".log()
+    is Int -> "$msg ${this.toByteArray().toHex()} ($this)".log()
+    is Long -> "$msg ${this.toByteArray().toHex()} ($this)".log()
+    else ->
+        "$msg".log()
+}
+
+inline fun Number.error(msg: String): Nothing = when (this) {
+    is Byte -> "$msg ${toHex()}".error()
+    is Short -> "$msg ${this.toByteArray().toHex()}".error()
+    is Int -> "$msg ${this.toByteArray().toHex()}".error()
+    is Long -> "$msg ${this.toByteArray().toHex()}".error()
+    else ->
+        "$msg".error()
 }
 
 object Log {

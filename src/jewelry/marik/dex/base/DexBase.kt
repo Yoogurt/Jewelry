@@ -17,9 +17,10 @@ internal abstract class DexBase<out Holder> constructor(offset: Int) where Holde
     */
     protected abstract fun onCreateHolder(): Holder
 
-    fun parse() {
+    fun parse(verify: Boolean) {
         holder.onParse(pointer)
-        holder.onVerify()
+        if (verify)
+            holder.onVerify()
     }
 
     protected abstract fun onWriteTo(out: OutputStream)

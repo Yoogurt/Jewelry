@@ -6,6 +6,8 @@ import jewelry.dex.main.constant.u4
 import jewelry.dex.main.constant.u8
 import jewelry.dex.os.OS
 import src.jewelry.marik.dex.constant.DexConstant
+import src.jewelry.marik.dex.constant.DexConstant.kClassesEntryEnd
+import src.jewelry.marik.dex.constant.DexConstant.kClassesEntryStart
 import java.util.jar.JarEntry
 import java.util.jar.JarFile
 import kotlin.reflect.KProperty1
@@ -17,17 +19,13 @@ fun CHECK(ret: Boolean) {
         throw AssertionError()
 }
 
-fun isZipFile(file: String): Boolean {
-    return try {
+fun isZipFile(file: String): Boolean = try {
         0 < JarFile(file).size()
     } catch (e: Throwable) {
         false
     }
-}
 
-fun isDexEntry(entry: JarEntry): Boolean {
-    return !entry.isDirectory && entry.name.startsWith(DexConstant.kClassesEntryStart) && entry.name.endsWith(DexConstant.kClassesEntryEnd)
-}
+fun isDexEntry(entry: JarEntry): Boolean = !entry.isDirectory && entry.name.startsWith(DexConstant.kClassesEntryStart) && entry.name.endsWith(DexConstant.kClassesEntryEnd)
 
 interface Offsetor<T> {
 
@@ -127,4 +125,7 @@ fun reinterpret_cast(start: u4): ByteArrayOffsetor {
 }
 
 fun main(vararg arg: String) {
+    val test = "classes.dex"
+    println(test.startsWith(kClassesEntryStart))
+    println(test.endsWith(kClassesEntryEnd))
 }

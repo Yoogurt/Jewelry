@@ -6,6 +6,6 @@ internal class DexPartial(val dex: Dex, val begin: Int, val size: Int) {
 
     fun parse() {
         header = DexHeader(this)
-        header.parse()
+        header.parse(true)
     }
 }

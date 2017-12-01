@@ -1,5 +1,7 @@
 package jewelry.dex.util.data
 
+import jewelry.dex.main.constant.uint32_t
+
 object UtilGlobal {
     var DEFAULT_LITTLE_ENDIAN: Boolean = true
 }
@@ -122,6 +124,8 @@ fun Short.toByteArray(isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN
 //---------------------- INT ------------------------//
 fun Int.toHex() = toByteArray().toHex()
 
+fun Int.upAlign() = (this + 3) and (-1 xor 3)
+
 fun Int.assertAlignment() {
     if (this and 1 == 1)
         throw AssertionError()
@@ -200,5 +204,5 @@ fun main(vararg arg: String) {
 //    var test = -122
 //    var test2 = -123
 //    println(test.compareUnsigned(test2))
-    println((Int.MIN_VALUE).toUnsigned())
+    println(8.upAlign())
 }

@@ -19,7 +19,7 @@ class Dex private constructor(filePath: String) {
 
     private fun parse(): src.jewelry.marik.dex.Dex {
         if (mDexPartial.size < 1)
-            "no marik found in ${location}".error()
+            "no dex found in ${location}".error()
         mDexPartial.forEach {
             it.parse()
         }
@@ -72,5 +72,5 @@ class Dex private constructor(filePath: String) {
 }
 
 fun main(vararg arg: String) {
-    val dex = Dex.open("/home/marik/Desktop/app-debug.apk")
+    val dex = Dex.open("/home/marik/Desktop/base.apk")
 }

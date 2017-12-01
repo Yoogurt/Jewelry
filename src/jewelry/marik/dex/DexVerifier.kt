@@ -2,10 +2,12 @@ package src.jewelry.marik.dex
 
 import jewelry.dex.main.constant.*
 import jewelry.dex.os.OS
+import jewelry.dex.util.CHECK
 import jewelry.dex.util.data.*
 import jewelry.dex.util.log.error
 import jewelry.dex.util.log.errorVerify
 import jewelry.dex.util.log.log
+import jewelry.marik.dex.*
 import src.jewelry.marik.dex.constant.DexFile
 import java.util.zip.Adler32
 
@@ -14,9 +16,36 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
     internal var ptr: u4 = 0
 
     fun verify(checkAdler: Boolean = true) {
+        dumpDexHeader()
         checkHeader(checkAdler)
         checkMap()
         checkIntraSection()
+    }
+
+    private fun dumpDexHeader() {
+        holder.magic.log("magic      :")
+        holder.checksum.log("checksum   :")
+        holder.signature.log("signature  :")
+        holder.file_size.log("file_size  :")
+        holder.header_size.log("header_size:")
+        holder.endian_tag.log("endian_tag :")
+        holder.link_size.log("link_size  :")
+        holder.link_off.log("link_off   :")
+        holder.map_off.log("map_off    :")
+        holder.string_ids_size.log("string_size:")
+        holder.string_ids_off.log("string_off :")
+        holder.type_ids_size.log("type_size  :")
+        holder.type_ids_off.log("type_off   :")
+        holder.proto_ids_size.log("proto_size :")
+        holder.proto_ids_off.log("proto_off  :")
+        holder.field_ids_size.log("field_size :")
+        holder.field_ids_off.log("field_off  :")
+        holder.method_ids_size.log("method_size:")
+        holder.method_ids_off.log("method_off :")
+        holder.class_defs_size.log("class_size :")
+        holder.class_defs_off.log("class_off  :")
+        holder.data_size.log("data_size  :")
+        holder.data_off.log("data_off   :")
     }
 
     /*---------------------------header----------------------------*/
@@ -179,8 +208,8 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         if (elem_size == 0)
             "elem_size can not be zero for $label".error()
 
-        val range_start = start.toLong()
-        val file_start = holder.header.begin.toLong()
+        val range_start = start
+        val file_start = begin
 
         val max: u8 = 0xff_ff_ff_ff // max unsigned int
         val available_bytes_till_end_of_mem = max - start
@@ -188,6 +217,12 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
 
         if (max_count < count)
             "Overflow in range for $label: ${range_start - file_start} for $count@$elem_size".error()
+
+        val range_end = range_start + count * elem_size
+        val file_end = file_start + size
+
+        if ((range_start < file_start) or (range_end > file_end))
+            "Bad range for $label: ${range_start - file_start} to ${range_end - file_end}".error()
     }
 
     private fun checkList(element_size: size_t, label: String, ptr: u4): u4 {
@@ -198,7 +233,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         if (count > 0)
             checkListSize(ptr + 4, count, element_size, label)
 
-        ptr += 4 + count + element_size
+        ptr += (4 + count * element_size).upAlign()
         return ptr
     }
 
@@ -208,7 +243,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         val map = holder.header.map_list
         val items = map.list
 
-        var offset = 0
+        var offset: size_t = 0
         ptr = begin
 
         // Check the items listed in the map.
@@ -221,7 +256,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             // Check for padding and overlap between items.
             checkPadding(offset, section_offset)
             if (offset > section_offset)
-                "Section overlap or out-of-order map: ${offset.toHex()}, ${section_offset.toHex()}".error()
+                "Section overlap or out-of-order map: ${offset} > ${section_offset}".error()
 
             when (type.toInt()) {
                 DexFile.kDexTypeHeaderItem -> {
@@ -241,7 +276,34 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                 DexFile.kDexTypeMethodIdItem,
                 DexFile.kDexTypeClassDefItem -> {
                     checkIntraIdSection(section_offset, section_count, type)
+                    offset = ptr - begin
                 }
+                DexFile.kDexTypeMapList -> {
+                    if (section_count != 1)
+                        "Multiple map list items".error()
+
+                    if (section_offset != holder.map_off)
+                        "Map not at header-defined offset: ${section_offset.toHex()} expected ${holder.map_off.toHex()}".error()
+
+                    ptr += 4 + map.size * MapItem.size
+                    offset = section_offset + 4 + map.size * MapItem.size
+                }
+
+                DexFile.kDexTypeTypeList,
+                DexFile.kDexTypeAnnotationSetRefList,
+                DexFile.kDexTypeAnnotationSetItem,
+                DexFile.kDexTypeClassDataItem,
+                DexFile.kDexTypeCodeItem,
+                DexFile.kDexTypeStringDataItem,
+                DexFile.kDexTypeDebugInfoItem,
+                DexFile.kDexTypeAnnotationItem,
+                DexFile.kDexTypeEncodedArrayItem,
+                DexFile.kDexTypeAnnotationsDirectoryItem -> {
+                    checkIntraDataSection(section_offset, section_count, type)
+                    offset = ptr - begin
+                }
+                else ->
+                    type.toByteArray().error("Unknown map item type")
             }
         }
     }
@@ -259,6 +321,20 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                 offset++
             }
         }
+    }
+
+    private fun checkIntraDataSection(offset: size_t, count: uint32_t, type: uint16_t) {
+        val data_start = holder.data_off
+        val data_end = data_start + holder.data_size
+
+        if ((offset < data_start) or (offset > data_end))
+            "Bad offset for data subsection: ${offset.toHex()}".error()
+
+        checkIntraSectionIterate(offset, count, type)
+
+        val next_offset = ptr - begin
+        if (next_offset > data_end)
+            "Out-of-bounds end of data subsection: ${next_offset.toHex()}".error()
     }
 
     private fun checkIntraIdSection(offset: size_t, count: uint32_t, type: uint16_t) {
@@ -367,6 +443,17 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
 
     private fun checkIntraClassDataItem() {
         val it = ClassDataItemIterator(holder.header.partial.dex, ptr)
+        val direct_method_indexes = HashSet<uint32_t>()
+
+        val have_class = false
+        val class_type_index: uint16_t
+        val class_access_flag: uint32_t
+
+
+    }
+
+    private fun checkClassDataItemField(idx: uint32_t, access_flag: uint32_t, expect_static: Boolean) {
+        val it = ClassDataItemIterator(holder.header.partial.dex, ptr)
         var prev_index: uint32_t = 0
 
         while (it.hasNextStaticField) {
@@ -383,19 +470,67 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         while (it.hasNextInstanceField) {
             val curr_index = it.memberIndex
             if (curr_index < ptr)
-            it.next
+                it.next
         }
     }
 
-    private fun checkClassDataItemField(idx: uint32_t, access_flag: uint32_t, expect_static: Boolean) {
+    private fun checkIntraClassDataItemFields(it: ClassDataItemIterator, kStatic: Boolean, have_class: Boolean, class_type_index: uint16_t, class_access_flags: uint32_t) {
+        CHECK(it != null)
+
+        val prev_index: uint32_t = 0
+        while ((kStatic and it.hasNextStaticField or it.hasNextInstanceField)) {
+            val curr_index = it.memberIndex
+
+
+            it.next
+        }
 
     }
 
-    private fun <kStatic> checkIntraClassDataItemFields() where kStatic : Boolean {
+    private fun checkOrderAndGetClassFlags(is_field: Boolean, type_descr: String, curr_index: uint32_t, prev_index: uint32_t, have_class: Boolean, class_type_index: uint16_t, class_access_flags: uint32_t): CheckResult {
+
+        if (curr_index < prev_index)
+            "out-of-order $type_descr indexes ${prev_index.toHex()} and ${curr_index.toHex()}".error()
+
+        if (!have_class) {
+
+        }
+
+        return CheckResult(have_class, class_type_index, class_access_flags)
     }
+
+    private fun findClassFlags(index: uint32_t, is_field: Boolean): CheckResult {
+        if (index >= if (is_field) holder.field_ids_size else holder.method_ids_size)
+            "index $index is out of bound while finding class flags".error()
+
+        var class_type_index: uint16_t
+        var class_access_falgs: uint32_t
+        if (is_field) {
+            class_type_index = FieldId.create(MemoryReader(begin + holder.field_ids_off + index * FieldId.size)).class_idx
+        } else {
+            class_type_index = MethodId.create(MemoryReader(begin + holder.method_ids_off + index * MethodId.size)).class_idx
+        }
+
+        if (class_type_index >= holder.type_ids_size)
+            "class_type_index out of bound".error()
+
+        val class_def_begin = begin + holder.class_defs_off
+
+        for (i in 0 until holder.class_defs_size) {
+            val class_def = ClassDef.create(MemoryReader(class_def_begin + i * ClassDef.size))
+            if (class_def.class_idx == class_type_index) {
+                class_access_falgs = class_def.access_flag
+                return CheckResult(false, class_type_index, class_access_falgs)
+            }
+        }
+        "unable to find class-def , not defined here".error()
+    }
+
 
     /*---------------------------interSection----------------------------*/
     companion object {
+        private data class CheckResult(val have_class: Boolean, val class_type_index: uint16_t, val class_access_flags: uint32_t)
+
         private fun mapTypeToBitMask(map_type: uint32_t): uint32_t =
                 when (map_type) {
                     DexFile.kDexTypeHeaderItem -> 1 shl 0

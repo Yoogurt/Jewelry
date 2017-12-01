@@ -18,7 +18,7 @@ internal open class ClassDataItemIterator(val dexFile: Dex, var ptr_pos: uint32_
     private val field = ClassDataField()
     private val method = ClassDataMethod()
 
-    val numberStaticFields
+    val numStaticFields
         get() = header.static_fields_size
 
     val numInstanceFields
@@ -153,7 +153,7 @@ internal open class ClassDataItemIterator(val dexFile: Dex, var ptr_pos: uint32_
 
     private fun nextUnsignedLeb128(): uint32_t {
         val ret = DecodeUnsignedLeb128(ptr_pos)
-        ptr_pos += ret.ptr
+        ptr_pos = ret.ptr
         return ret.ret
     }
 

@@ -1,6 +1,5 @@
 package jewelry.marik.util.data
 
-import jewelry.dex.util.data.*
 import jewelry.marik.os.OS
 import jewelry.marik.dex.constant.alais.*
 import java.util.*
@@ -12,13 +11,15 @@ internal class MemoryReader constructor(val source: ByteArray, val startOffset: 
 
     constructor(startOffset: Int) : this(OS.MEMORY, startOffset)
 
+    constructor(startOffset: Pointer<*>) : this(OS.MEMORY, startOffset.address)
+
     inline val u1: u1
         get() = source[startOffset + offset++]
 
     inline val u2: u2
         get() {
             try {
-                return source.toInt16(startOffset + offset)
+                return source.toUInt16(startOffset + offset)
             } finally {
                 offset += 2
             }

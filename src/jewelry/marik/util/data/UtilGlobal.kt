@@ -98,7 +98,7 @@ fun ByteArray.toUInt64(startIndex: Int = 0, length: Int = 8, isLittleEndian: Boo
 
 }
 
-fun ByteArray.toInt16(startIndex: Int = 0, length: Int = 2, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Short =
+fun ByteArray.toUInt16(startIndex: Int = 0, length: Int = 2, isLittleEndian: Boolean = UtilGlobal.DEFAULT_LITTLE_ENDIAN): Short =
         toUInt32(startIndex, length).toShort()
 //---------------------- SHORT ------------------------//
 

@@ -2,6 +2,7 @@ package jewelry.marik.dex
 
 import jewelry.marik.os.PROT_NONE
 import jewelry.marik.os.mmap
+import jewelry.marik.util.data.BytePtr
 import jewelry.marik.util.isDexEntry
 import jewelry.marik.util.isZipFile
 import jewelry.marik.util.log.error
@@ -48,7 +49,7 @@ class Dex private constructor(filePath: String) {
 
                     val mmapAddress = mmap(0, it.size.toInt(), PROT_NONE, jarFile.getInputStream(it), 0)
 
-                    dex.mDexPartial.add(DexPartial(dex, mmapAddress, it.size.toInt()))
+                    dex.mDexPartial.add(DexPartial(dex, BytePtr(mmapAddress), it.size.toInt()))
 
                     if (debug)
                         "${it.name} mmap at $mmapAddress".log()

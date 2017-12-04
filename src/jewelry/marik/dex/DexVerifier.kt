@@ -1,8 +1,8 @@
 package jewelry.marik.dex
 
+import com.sun.org.apache.xpath.internal.operations.Bool
 import jewelry.marik.os.OS
 import jewelry.marik.util.CHECK
-import jewelry.dex.util.data.*
 import jewelry.marik.util.log.error
 import jewelry.marik.util.log.errorVerify
 import jewelry.marik.util.log.log
@@ -10,11 +10,12 @@ import jewelry.marik.dex.constant.alais.*
 import jewelry.marik.dex.iterator.ClassDataItemIterator
 import jewelry.marik.dex.constant.DexFile
 import jewelry.marik.util.data.*
+import jewelry.marik.util.nullptr
 import java.util.zip.Adler32
 
-internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHolder, val begin: Int, val size: Int, val location: String) {
+internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHolder, val begin: Pointer<Byte>, val size: Int, val location: String) {
 
-    internal var ptr: u4 = 0
+    internal var ptr: Pointer<Byte> = BytePtr(0)
 
     fun verify(checkAdler: Boolean = true) {
         dumpDexHeader()
@@ -87,7 +88,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         * */
         val non_sum = 8 + 4
         val non_sum_ptr = holder.header.begin + non_sum
-        adler.update(OS.MEMORY, non_sum_ptr, holder.file_size - non_sum)
+        adler.update(OS.MEMORY, non_sum_ptr.address, holder.file_size - non_sum)
         if (adler.value.toInt() != holder.checksum)
             "header checksum verify fail".errorVerify(holder.checksum.toByteArray(), adler.value.toInt().toByteArray())
     }
@@ -205,7 +206,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             "Map is missing class_defs entry".error()
     }
 
-    private fun checkListSize(start: u4, count: u4, elem_size: u4, label: String) {
+    private fun checkListSize(start: Pointer<Byte>, count: u4, elem_size: u4, label: String) {
         if (elem_size == 0)
             "elem_size can not be zero for $label".error()
 
@@ -213,7 +214,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         val file_start = begin
 
         val max: u8 = 0xff_ff_ff_ff // max unsigned int
-        val available_bytes_till_end_of_mem = max - start
+        val available_bytes_till_end_of_mem = max - start.address
         val max_count = available_bytes_till_end_of_mem / elem_size
 
         if (max_count < count)
@@ -226,16 +227,14 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             "Bad range for $label: ${range_start - file_start} to ${range_end - file_end}".error()
     }
 
-    private fun checkList(element_size: size_t, label: String, ptr: u4): u4 {
-        var ptr = ptr
-        checkListSize(ptr, 1, 4, label)
+    private fun checkList(element_size: size_t, label: String, ptr: Pointer<Pointer<Byte>>) {
+        checkListSize(ptr[0], 1, 4, label)
 
-        val count = OS.MEMORY.toUInt32(ptr)
+        val count = reinterpret_cast<IntPtr>(ptr[0])[0]
         if (count > 0)
-            checkListSize(ptr + 4, count, element_size, label)
+            checkListSize(ptr[0] + 4, count, element_size, label)
 
-        ptr += (4 + count * element_size) * 4
-        return ptr
+        ptr[0] = ptr[0] + (4 + count * element_size)
     }
 
     /*---------------------------intraSection----------------------------*/
@@ -315,8 +314,8 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             checkListSize(begin + offset, aligned_offset - offset, 1, "section")
 
             while (offset < aligned_offset) {
-                if (OS.MEMORY[ptr] != 0.toByte())
-                    "Non-zero padding ${OS.MEMORY[ptr].toHex()} before section start at ${offset.toByteArray().toHex()}".error()
+                if (ptr[0] != 0.toByte())
+                    "Non-zero padding ${ptr[0].toHex()} before section start at ${offset.toByteArray().toHex()}".error()
 
                 ptr++
                 offset++
@@ -427,13 +426,13 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                     ptr += ClassDef.Companion.size
                 }
                 DexFile.kDexTypeTypeList -> {
-                    ptr = checkList(TypeItem.Companion.size, "type_list", ptr)
+                    checkList(TypeItem.Companion.size, "type_list", ptr.pointer)
                 }
                 DexFile.kDexTypeAnnotationSetRefList -> {
-                    ptr = checkList(AnnotationSetRefItem.Companion.size, "annotation_set_ref_list", ptr)
+                    checkList(AnnotationSetRefItem.Companion.size, "annotation_set_ref_list", ptr.pointer)
                 }
                 DexFile.kDexTypeAnnotationSetItem -> {
-                    ptr = checkList(4, "annotation_Set_item", ptr)
+                    checkList(4, "annotation_Set_item", ptr.pointer)
                 }
                 DexFile.kDexTypeClassDataItem -> {
                     checkIntraClassDataItem()
@@ -443,7 +442,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
     }
 
     private fun checkIntraClassDataItem() {
-        val it = ClassDataItemIterator(holder.header.partial.dex, ptr)
+        val it = ClassDataItemIterator(holder.header.partial.dex, ptr.address)
         val direct_method_indexes = HashSet<uint32_t>()
 
         val have_class = false
@@ -454,7 +453,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
     }
 
     private fun checkClassDataItemField(idx: uint32_t, access_flag: uint32_t, expect_static: Boolean) {
-        val it = ClassDataItemIterator(holder.header.partial.dex, ptr)
+        val it = ClassDataItemIterator(holder.header.partial.dex, ptr.address)
         var prev_index: uint32_t = 0
 
         while (it.hasNextStaticField) {
@@ -470,58 +469,58 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         prev_index = 0
         while (it.hasNextInstanceField) {
             val curr_index = it.memberIndex
-            if (curr_index < ptr)
+            if (ptr > curr_index)
                 it.next
         }
     }
 
-    private fun checkIntraClassDataItemFields(it: ClassDataItemIterator, kStatic: Boolean, have_class: Boolean, class_type_index: uint16_t, class_access_flags: uint32_t) {
-        CHECK(it != null)
+    private fun checkIntraClassDataItemFields(it: Pointer<ClassDataItemIterator>, kStatic: Boolean, have_class: Pointer<Boolean>, class_type_index: Pointer<uint16_t>, class_access_flags: Pointer<uint32_t>) {
+        CHECK(!it.equals(nullptr))
 
-        val prev_index: uint32_t = 0
+        val it = it[0]
+        var prev_index: uint32_t = 0
+
         while ((kStatic and it.hasNextStaticField or it.hasNextInstanceField)) {
             val curr_index = it.memberIndex
+            checkOrderAndGetClassFlags(true, if (kStatic) "static field" else "instance field", curr_index, prev_index, have_class, class_type_index, class_access_flags)
 
+            prev_index = curr_index
 
+//            checkClassDataItemField(curr_index , it.rawMemberAccessFlags , class_access_flags[0] , class_type_index[0] , kStatic)
             it.next
         }
 
     }
 
-    private fun checkOrderAndGetClassFlags(is_field: Boolean, type_descr: String, curr_index: uint32_t, prev_index: uint32_t, have_class: Boolean, class_type_index: uint16_t, class_access_flags: uint32_t): CheckResult {
+    private fun checkOrderAndGetClassFlags(is_field: Boolean, type_descr: String, curr_index: uint32_t, prev_index: uint32_t, have_class: Pointer<Boolean>, class_type_index: Pointer<uint16_t>, class_access_flags: Pointer<uint32_t>) {
 
         if (curr_index < prev_index)
             "out-of-order $type_descr indexes ${prev_index.toHex()} and ${curr_index.toHex()}".error()
 
-        if (!have_class) {
+        if (!have_class[0]) {
 
         }
-
-        return CheckResult(have_class, class_type_index, class_access_flags)
     }
 
-    private fun findClassFlags(index: uint32_t, is_field: Boolean): CheckResult {
+    private fun findClassFlags(index: uint32_t, is_field: Boolean, class_type_index: Pointer<uint16_t>, class_access_flags: Pointer<uint32_t>) {
         if (index >= if (is_field) holder.field_ids_size else holder.method_ids_size)
             "index $index is out of bound while finding class flags".error()
 
-        var class_type_index: uint16_t
-        var class_access_falgs: uint32_t
         if (is_field) {
-            class_type_index = FieldId.create(MemoryReader(begin + holder.field_ids_off + index * FieldId.size)).class_idx
+            class_type_index[0] = FieldId.create(MemoryReader(begin + holder.field_ids_off + index * FieldId.size)).class_idx
         } else {
-            class_type_index = MethodId.create(MemoryReader(begin + holder.method_ids_off + index * MethodId.size)).class_idx
+            class_type_index[0] = MethodId.create(MemoryReader(begin + holder.method_ids_off + index * MethodId.size)).class_idx
         }
 
-        if (class_type_index >= holder.type_ids_size)
+        if (class_type_index[0] >= holder.type_ids_size)
             "class_type_index out of bound".error()
 
         val class_def_begin = begin + holder.class_defs_off
 
         for (i in 0 until holder.class_defs_size) {
             val class_def = ClassDef.create(MemoryReader(class_def_begin + i * ClassDef.size))
-            if (class_def.class_idx == class_type_index) {
-                class_access_falgs = class_def.access_flag
-                return CheckResult(false, class_type_index, class_access_falgs)
+            if (class_def.class_idx == class_type_index[0]) {
+                class_access_flags[0] = class_def.access_flag
             }
         }
         "unable to find class-def , not defined here".error()
@@ -530,8 +529,6 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
 
     /*---------------------------interSection----------------------------*/
     companion object {
-        private data class CheckResult(val have_class: Boolean, val class_type_index: uint16_t, val class_access_flags: uint32_t)
-
         private fun mapTypeToBitMask(map_type: uint32_t): uint32_t =
                 when (map_type) {
                     DexFile.kDexTypeHeaderItem -> 1 shl 0
@@ -562,5 +559,4 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                     else -> true
                 }
     }
-
 }

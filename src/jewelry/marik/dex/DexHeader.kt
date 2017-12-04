@@ -7,9 +7,9 @@ import jewelry.marik.dex.constant.alais.u4
 import jewelry.marik.dex.constant.DexFile
 import jewelry.marik.util.data.MemoryReader
 
-private const val verify = false
+private const val verify = true
 
-internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.DexHeaderHolder>(partial.begin) {
+internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.DexHeaderHolder>(partial.begin.address) {
 
     internal val begin = partial.begin
     internal val size = partial.size
@@ -19,7 +19,7 @@ internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.
     internal val map_list: MapList
         get() {
             if (_map_list == null) {
-                _map_list = MapList.Companion.create(MemoryReader(begin + holder.map_off))
+                _map_list = MapList.Companion.create(MemoryReader(begin.address + holder.map_off))
             }
             return _map_list!!
         }

@@ -14,16 +14,21 @@ import kotlin.reflect.KProperty1
 
 const val nullptr = 0
 
-fun CHECK(ret: Boolean) {
+inline fun CHECK(ret: Boolean) {
     if (!ret)
         throw AssertionError()
 }
 
+inline fun DCHECK(ret: Boolean) {
+    if (ret)
+        throw AssertionError()
+}
+
 fun isZipFile(file: String): Boolean = try {
-        0 < JarFile(file).size()
-    } catch (e: Throwable) {
-        false
-    }
+    0 < JarFile(file).size()
+} catch (e: Throwable) {
+    false
+}
 
 fun isDexEntry(entry: JarEntry): Boolean = !entry.isDirectory && entry.name.startsWith(DexConstant.kClassesEntryStart) && entry.name.endsWith(DexConstant.kClassesEntryEnd)
 

@@ -24,9 +24,7 @@ internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.
             return _map_list!!
         }
 
-    override fun onCreateHolder(): DexHeaderHolder {
-        return DexHeaderHolder(this)
-    }
+    override fun onCreateHolder(): DexHeaderHolder = DexHeaderHolder(this)
 
     override fun onWriteTo(out: java.io.OutputStream) {
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.

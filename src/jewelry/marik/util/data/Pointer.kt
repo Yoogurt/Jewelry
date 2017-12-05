@@ -1,17 +1,18 @@
 package jewelry.marik.util.data
 
-import com.sun.org.apache.xpath.internal.operations.Bool
+import jewelry.marik.dex.Struct
 import jewelry.marik.dex.constant.alais.uint32_t
+import jewelry.marik.dex.constant.alais.uint8_t
 import jewelry.marik.os.OS
 import jewelry.marik.util.log.error
-import jewelry.marik.util.nullptr
+import kotlin.collections.ArrayList
 
 /* void* */
 internal abstract class Pointer<Type> constructor(pointer: uint32_t) {
     abstract val size: Int
 
     var address = pointer
-        protected set
+        internal set
 
     override operator fun equals(other: Any?): Boolean {
         return if ((other == null))
@@ -33,15 +34,9 @@ internal abstract class Pointer<Type> constructor(pointer: uint32_t) {
 
     abstract operator fun minus(value: Pointer<Type>): Int
 
-    open operator fun inc(): Pointer<Type> {
-        address += size
-        return this
-    }
+    abstract operator fun inc(): Pointer<Type>
 
-    open operator fun dec(): Pointer<Type> {
-        address -= size
-        return this
-    }
+    abstract operator fun dec(): Pointer<Type>
 
     abstract operator fun get(index: Int): Type
 
@@ -64,7 +59,7 @@ internal class SecondaryPointer<Type : Pointer<*>>(protected var out: Type) : Po
 
     override fun set(index: Int, value: Type) {
         if (index == 0)
-            out = value
+            out.address = value.address
         else throw ArrayIndexOutOfBoundsException()
     }
 
@@ -74,6 +69,14 @@ internal class SecondaryPointer<Type : Pointer<*>>(protected var out: Type) : Po
 
     override operator fun minus(value: Int): Pointer<Type> {
         "".error()
+    }
+
+    override fun inc(): Pointer<Type> {
+        "inc is not supported".error()
+    }
+
+    override fun dec(): Pointer<Type> {
+        "dec is not supported".error()
     }
 
     override operator fun minus(value: Pointer<Type>) = address - value.address
@@ -100,6 +103,14 @@ internal class ObjectPointer<Type>(source: Type) : Pointer<Type>(-1) {
         "minus is not supported".error()
     }
 
+    override fun inc(): Pointer<Type> {
+        "inc is not supported".error()
+    }
+
+    override fun dec(): Pointer<Type> {
+        "dec is not supported".error()
+    }
+
     override fun set(index: Int, value: Type) {
         if (index == 0) source = value else throw IndexOutOfBoundsException()
     }
@@ -108,19 +119,29 @@ internal class ObjectPointer<Type>(source: Type) : Pointer<Type>(-1) {
 
     override fun get(index: Int): Type = if (index == 0) source else throw IndexOutOfBoundsException()
 }
+
 /* struct[] */
-abstract internal class StructPointer<Type>(pointer: uint32_t) : Pointer<Type>(pointer) {
+abstract internal class StructPointer<Type : Struct<*>>(pointer: uint32_t) : Pointer<Type>(pointer) {
     override val size: Int = 4
 
-    protected open fun getValue(buffer: MemoryReader): Type {
-        "unsupported to getValue in void*".error()
+    override fun get(index: Int): Type {
+        "".error()
     }
-
-    override fun get(index: Int): Type = getValue(MemoryReader(address + index * size))
 }
 
 /* uint8_t* */
 internal class BytePtr(pointer: uint32_t) : Pointer<Byte>(pointer) {
+    val string: String by lazy {
+        val collection = ArrayList<Byte>(20)
+
+        (address..Int.MAX_VALUE).forEach {
+            if (OS.MEMORY[it] != 0.toByte())
+                collection.add(OS.MEMORY[it])
+            else return@lazy String(collection.toByteArray())
+        }
+        "out of range".error()
+    }
+
     override fun get(index: Int): Byte = OS.MEMORY[address + index * size]
 
     override fun set(index: Int, value: Byte) {
@@ -134,7 +155,25 @@ internal class BytePtr(pointer: uint32_t) : Pointer<Byte>(pointer) {
     override operator fun minus(value: Int) = BytePtr(address - size * value)
 
     override operator fun minus(value: Pointer<Byte>) = address - value.address
+
+    override operator fun inc() = BytePtr(address + size)
+
+    override operator fun dec() = BytePtr(address - size)
+
 }
+
+internal val Pointer<uint8_t>.string: String
+    get() {
+        val collection = ArrayList<Byte>(20)
+
+        (address..Int.MAX_VALUE).forEach {
+            if (OS.MEMORY[it] != 0.toByte())
+                collection.add(OS.MEMORY[it])
+            else return String(collection.toByteArray())
+        }
+        "out of range".error()
+    }
+
 
 /* uint32_t* */
 internal class ShortPtr(pointer: uint32_t) : Pointer<Short>(pointer) {
@@ -153,6 +192,10 @@ internal class ShortPtr(pointer: uint32_t) : Pointer<Short>(pointer) {
     override operator fun minus(value: Int) = ShortPtr(address - size * value)
 
     override operator fun minus(value: Pointer<Short>) = address - value.address
+
+    override operator fun inc() = ShortPtr(address + size)
+
+    override operator fun dec() = ShortPtr(address - size)
 }
 
 /* uint32_t* */
@@ -172,6 +215,10 @@ internal class IntPtr(pointer: uint32_t) : Pointer<Int>(pointer) {
     override operator fun minus(value: Int) = IntPtr(address - size * value)
 
     override operator fun minus(value: Pointer<Int>) = address - value.address
+
+    override operator fun inc() = IntPtr(address + size)
+
+    override operator fun dec() = IntPtr(address - size)
 }
 
 /* uint64_t* */
@@ -191,6 +238,10 @@ internal class LongPtr(pointer: uint32_t) : Pointer<Long>(pointer) {
     override operator fun minus(value: Int) = LongPtr(address - size * value)
 
     override operator fun minus(value: Pointer<Long>) = address - value.address
+
+    override operator fun inc() = LongPtr(address + size)
+
+    override operator fun dec() = LongPtr(address - size)
 }
 
 /* reinterpret_cast support */
@@ -205,14 +256,26 @@ inline internal fun <reified P : Pointer<*>> reinterpret_cast(source: Pointer<*>
 
 /* equals with operator '&' */
 inline internal val <reified Type> Type.pointer: Pointer<Type>
-    get() = if (Type::class == Pointer::class) (SecondaryPointer<Pointer<Type>>(this as Pointer<Type>) as Pointer<Type>)
-    else ObjectPointer<Type>(this)
+    get() = when (Type::class) {
+        Pointer::class ->
+            (SecondaryPointer(this as Pointer<*>) as Pointer<Type>)
+//        Struct::class ->
+
+        else ->
+            ObjectPointer(this)
+    }
 
 
 fun main(vararg arg: String) {
-    (0..40).forEach {
-        OS.MEMORY[it] = it.toByte()
-    }
+//    (0..40).forEach {
+//        OS.MEMORY[it] = it.toByte()
+//    }
+
+//    val test = 0.pointer
+//
+//    test[0] = 123
+//
+//    println(test)
 
 //    val int_ptr = IntPtr(2)
 //    (0..3).forEach {
@@ -233,9 +296,26 @@ fun main(vararg arg: String) {
 //    println(int_ptr[0].toHex())
 
 //    val test = 32
-//    val look = test.pointer.pointer
-//    look[0][0] = 11
-//    print(look[0])
+//    val look = test.pointer.pointer.pointer
+//    print(look)
 
+//    testBytePtrString()
 
+//    testBytePtrUTFString()
+
+}
+
+fun testBytePtrString() {
+    ('a'..'z').forEachIndexed { i, it ->
+        OS.MEMORY[i] = it.toByte()
+    }
+
+    println(BytePtr(0).string)
+}
+
+fun testBytePtrUTFString() {
+    val data = "你好，我好，大家好".toByteArray()
+
+    System.arraycopy(data, 0, OS.MEMORY, 0, data.size)
+    println((BytePtr(0) as Pointer<uint8_t>).string)
 }

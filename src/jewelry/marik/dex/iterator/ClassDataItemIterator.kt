@@ -6,12 +6,15 @@ import jewelry.marik.util.CHECK
 import jewelry.marik.util.log.warning
 import jewelry.marik.util.nullptr
 import jewelry.marik.dex.Dex
+import jewelry.marik.dex.constant.alais.uint8_t
 import jewelry.marik.dex.constant.kAccFinal
 import jewelry.marik.dex.constant.kAccNative
 import jewelry.marik.dex.constant.kAccValidFieldFlags
 import jewelry.marik.dex.constant.kAccValidMethodFlags
+import jewelry.marik.util.data.Pointer
+import jewelry.marik.util.data.pointer
 
-internal open class ClassDataItemIterator(val dexFile: Dex, var ptr_pos: uint32_t) {
+internal open class ClassDataItemIterator(val dexFile: Dex, var ptr_pos: Pointer<uint8_t>) {
 
     internal var pos: uint32_t = 0
     internal var last_idx: uint32_t = 0
@@ -114,24 +117,24 @@ internal open class ClassDataItemIterator(val dexFile: Dex, var ptr_pos: uint32_
     }
 
     private fun readClassDataHeader() {
-        CHECK(ptr_pos != nullptr)
-        header.static_fields_size = nextUnsignedLeb128()
-        header.instance_fields_size = nextUnsignedLeb128()
-        header.direct_method_size = nextUnsignedLeb128()
-        header.viretual_method_size = nextUnsignedLeb128()
+        CHECK(!ptr_pos.equals(nullptr))
+        header.static_fields_size = DecodeUnsignedLeb128(ptr_pos.pointer)
+        header.instance_fields_size = DecodeUnsignedLeb128(ptr_pos.pointer)
+        header.direct_method_size = DecodeUnsignedLeb128(ptr_pos.pointer)
+        header.viretual_method_size = DecodeUnsignedLeb128(ptr_pos.pointer)
     }
 
     private fun readClassDataField() {
-        field.field_idx_delta = nextUnsignedLeb128()
-        field.access_flags = nextUnsignedLeb128()
+        field.field_idx_delta = DecodeUnsignedLeb128(ptr_pos.pointer)
+        field.access_flags = DecodeUnsignedLeb128(ptr_pos.pointer)
         if ((last_idx != 0) and (field.field_idx_delta == 0))
             "Duplicate field in ${dexFile.location}".warning()
     }
 
     private fun readClassDataMethod() {
-        method.method_idx_delta = nextUnsignedLeb128()
-        method.access_flags = nextUnsignedLeb128()
-        method.code_off = nextUnsignedLeb128()
+        method.method_idx_delta = DecodeUnsignedLeb128(ptr_pos.pointer)
+        method.access_flags = DecodeUnsignedLeb128(ptr_pos.pointer)
+        method.code_off = DecodeUnsignedLeb128(ptr_pos.pointer)
         if ((last_idx != 0) and (method.method_idx_delta == 0))
             "Duplicate method in ${dexFile.location}".warning()
     }
@@ -150,12 +153,6 @@ internal open class ClassDataItemIterator(val dexFile: Dex, var ptr_pos: uint32_
 
     private fun endOfVirtualMethodPos(): uint32_t {
         return 0
-    }
-
-    private fun nextUnsignedLeb128(): uint32_t {
-        val ret = DecodeUnsignedLeb128(ptr_pos)
-        ptr_pos = ret.ptr
-        return ret.ret
     }
 
     companion object {

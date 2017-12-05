@@ -1,5 +1,6 @@
 package jewelry.marik.dex
 
+import jewelry.marik.dex.constant.alais.u2
 import jewelry.marik.dex.constant.alais.u4
 import jewelry.marik.dex.constant.alais.uint16_t
 import jewelry.marik.dex.constant.alais.uint32_t
@@ -7,8 +8,18 @@ import jewelry.marik.dex.constant.kAccInterface
 import jewelry.marik.dex.constant.kAccValidClassFlags
 import jewelry.marik.dex.constant.kAccValidInterfaceFlags
 import jewelry.marik.util.data.MemoryReader
+import kotlin.reflect.full.companionObject
+import kotlin.reflect.full.staticProperties
 
-internal data class MapItem(val type: uint16_t, val unused: uint16_t, val size: uint32_t, val offset: uint32_t) {
+abstract class Struct<in T> {
+    val _size: u4
+        get() =
+            this::class.companionObject!!.members.find {
+                it.name == "size"
+            }!!.call(null) as u4
+}
+
+internal data class MapItem(val type: uint16_t, val unused: uint16_t, val size: uint32_t, val offset: uint32_t) : Struct<MapItem>() {
     companion object {
         const val size: u4 = 12
         fun create(buffer: MemoryReader) = MapItem(buffer.uint16_t, buffer.uint16_t, buffer.uint32_t, buffer.uint32_t)
@@ -141,4 +152,10 @@ internal data class AnnotationSetRefItem(val annotations_off: uint32_t) {
 
         fun create(buffer: MemoryReader) = AnnotationSetRefItem(buffer.uint32_t)
     }
+}
+
+fun main(vararg arg: String) {
+//    print(AnnotationSetRefItem::class.companionObject!!.members.find {
+//        it.name == "size"
+//    }!!.call(null) as u2)
 }

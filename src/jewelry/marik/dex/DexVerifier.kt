@@ -1,6 +1,7 @@
 package jewelry.marik.dex
 
 import com.sun.org.apache.xpath.internal.operations.Bool
+import jewelry.marik.dex.constant.DecodeUnsignedLeb128
 import jewelry.marik.os.OS
 import jewelry.marik.util.CHECK
 import jewelry.marik.util.log.error
@@ -9,6 +10,9 @@ import jewelry.marik.util.log.log
 import jewelry.marik.dex.constant.alais.*
 import jewelry.marik.dex.iterator.ClassDataItemIterator
 import jewelry.marik.dex.constant.DexFile
+import jewelry.marik.dex.constant.kAccJavaFlagsMask
+import jewelry.marik.dex.constant.kAccStatic
+import jewelry.marik.util.DCHECK
 import jewelry.marik.util.data.*
 import jewelry.marik.util.nullptr
 import java.util.zip.Adler32
@@ -442,36 +446,54 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
     }
 
     private fun checkIntraClassDataItem() {
-        val it = ClassDataItemIterator(holder.header.partial.dex, ptr.address)
+        val it = ClassDataItemIterator(holder.header.partial.dex, ptr)
         val direct_method_indexes = HashSet<uint32_t>()
 
-        val have_class = false
-        val class_type_index: uint16_t
-        val class_access_flag: uint32_t
+        val have_class = false.pointer
+        val class_type_index: Pointer<uint16_t> = 0.toShort().pointer
+        val class_access_flag: Pointer<uint32_t> = 0.pointer
 
+        checkIntraClassDataItemFields(it.pointer, true, have_class, class_type_index, class_access_flag)
+        checkIntraClassDataItemFields(it.pointer, false, have_class, class_type_index, class_access_flag)
 
     }
 
-    private fun checkClassDataItemField(idx: uint32_t, access_flag: uint32_t, expect_static: Boolean) {
-        val it = ClassDataItemIterator(holder.header.partial.dex, ptr.address)
-        var prev_index: uint32_t = 0
+    private fun checkClassDataItemField(idx: uint32_t, access_flag: uint32_t, class_access_flags: uint32_t, class_type_index: uint16_t, expect_static: Boolean) {
+        checkIndex(idx, holder.field_ids_size, "class_data_item field_idx")
 
-        while (it.hasNextStaticField) {
-            val curr_index = it.memberIndex
-            if (curr_index < prev_index) {
-                "out-of-order static field indexes $prev_index and $curr_index".error()
-            }
-            prev_index = curr_index
-            checkClassDataItemField(curr_index, it.rawMemberAccessFlags, true)
-            it.next
-        }
+        val my_class_index = FieldId.create(MemoryReader(begin + holder.field_ids_off)).class_idx
 
-        prev_index = 0
-        while (it.hasNextInstanceField) {
-            val curr_index = it.memberIndex
-            if (ptr > curr_index)
-                it.next
+        if (class_type_index != my_class_index)
+            "Field's class index unexpected, $my_class_index vs $class_type_index".error()
+
+        val is_static = (access_flag and kAccStatic) != 0
+        if (is_static != expect_static)
+            "Static/instance field not in expected list".error()
+
+        val error_msg = "".pointer
+        if (!checkFieldAccessFlags(idx, access_flag, class_access_flags, error_msg))
+            error_msg[0].error()
+    }
+
+    private fun checkClassDataItemMethod(idx: uint32_t, access_flag: uint32_t, class_access_flags: uint32_t, class_type_index: uint16_t, code_offset: uint32_t, direct_method_indexes: Pointer<Set<uint32_t>>, expect_direct: Boolean) {
+        DCHECK(!direct_method_indexes.equals(nullptr))
+
+        checkIndex(idx, holder.method_ids_size, "class_data_item method_idx")
+
+        val my_class_index = MethodId
+    }
+
+    private fun checkFieldAccessFlags(idx: uint32_t, field_access_flags: uint32_t, class_access_flags: uint32_t, error_msg: Pointer<String>): Boolean {
+        if ((field_access_flags and kAccJavaFlagsMask.inv()) != 0) {
+            error_msg[0] = "Bad field access_flags for"
+            return false
         }
+        return true
+    }
+
+    private inline fun checkIndex(field: uint32_t, limit: uint32_t, label: String) {
+        if (field >= limit)
+            "Bad index for $label: $field >= $limit".error()
     }
 
     private fun checkIntraClassDataItemFields(it: Pointer<ClassDataItemIterator>, kStatic: Boolean, have_class: Pointer<Boolean>, class_type_index: Pointer<uint16_t>, class_access_flags: Pointer<uint32_t>) {
@@ -486,10 +508,9 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
 
             prev_index = curr_index
 
-//            checkClassDataItemField(curr_index , it.rawMemberAccessFlags , class_access_flags[0] , class_type_index[0] , kStatic)
+            checkClassDataItemField(curr_index, it.rawMemberAccessFlags, class_access_flags[0], class_type_index[0], kStatic)
             it.next
         }
-
     }
 
     private fun checkOrderAndGetClassFlags(is_field: Boolean, type_descr: String, curr_index: uint32_t, prev_index: uint32_t, have_class: Pointer<Boolean>, class_type_index: Pointer<uint16_t>, class_access_flags: Pointer<uint32_t>) {
@@ -498,13 +519,17 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             "out-of-order $type_descr indexes ${prev_index.toHex()} and ${curr_index.toHex()}".error()
 
         if (!have_class[0]) {
-
+            have_class[0] = findClassFlags(curr_index, is_field, class_type_index, class_access_flags)
+            if (!have_class[0])
+                "could not find declaring class for $type_descr index $curr_index".error()
         }
     }
 
-    private fun findClassFlags(index: uint32_t, is_field: Boolean, class_type_index: Pointer<uint16_t>, class_access_flags: Pointer<uint32_t>) {
-        if (index >= if (is_field) holder.field_ids_size else holder.method_ids_size)
-            "index $index is out of bound while finding class flags".error()
+    private fun findClassFlags(index: uint32_t, is_field: Boolean, class_type_index: Pointer<uint16_t>, class_access_flags: Pointer<uint32_t>): Boolean {
+        if (index >= if (is_field) holder.field_ids_size else holder.method_ids_size) {
+            "index $index is out of bound while finding class flags".log()
+            return false
+        }
 
         if (is_field) {
             class_type_index[0] = FieldId.create(MemoryReader(begin + holder.field_ids_off + index * FieldId.size)).class_idx
@@ -512,8 +537,10 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             class_type_index[0] = MethodId.create(MemoryReader(begin + holder.method_ids_off + index * MethodId.size)).class_idx
         }
 
-        if (class_type_index[0] >= holder.type_ids_size)
-            "class_type_index out of bound".error()
+        if (class_type_index[0] >= holder.type_ids_size) {
+            "class_type_index out of bound".log()
+            return false
+        }
 
         val class_def_begin = begin + holder.class_defs_off
 
@@ -521,9 +548,11 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             val class_def = ClassDef.create(MemoryReader(class_def_begin + i * ClassDef.size))
             if (class_def.class_idx == class_type_index[0]) {
                 class_access_flags[0] = class_def.access_flag
+                return true
             }
         }
-        "unable to find class-def , not defined here".error()
+        "unable to find class-def , not defined here".log()
+        return false
     }
 
 
@@ -558,5 +587,30 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                         false
                     else -> true
                 }
+
+        private inline fun getFieldDescriptionOrError(begin: Pointer<uint8_t>, holder: DexHeader.Companion.DexHeaderHolder, idx: uint32_t): String {
+            val field_id = FieldId.create(MemoryReader(begin + holder.field_ids_off + idx * FieldId.size))
+
+            return "${getClassOrError(begin, holder, field_id.class_idx)}.${getStringOrError(begin, holder, field_id.name_idx)}"
+        }
+
+        private fun getStringOrError(begin: Pointer<uint8_t>, holder: DexHeader.Companion.DexHeaderHolder, string_idx: uint32_t): String {
+            if (holder.string_ids_size <= string_idx)
+                return "(error)"
+
+            val string_id = StringId.create(MemoryReader(begin + holder.string_ids_off + string_idx * StringId.size))
+
+            val ptr = begin + string_id.string_data_off
+            DecodeUnsignedLeb128(ptr.pointer)
+
+            return ptr.string
+        }
+
+        private fun getClassOrError(begin: Pointer<uint8_t>, holder: DexHeader.Companion.DexHeaderHolder, class_idx: uint16_t): String {
+            val type_id = TypeId.create(MemoryReader(begin + holder.type_ids_off + class_idx * TypeId.size))
+
+            return getStringOrError(begin, holder, type_id.descriptor_idx)
+        }
+
     }
 }

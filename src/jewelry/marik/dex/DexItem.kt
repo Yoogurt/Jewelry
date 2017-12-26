@@ -1,6 +1,5 @@
 package jewelry.marik.dex
 
-import jewelry.marik.dex.constant.alais.u2
 import jewelry.marik.dex.constant.alais.u4
 import jewelry.marik.dex.constant.alais.uint16_t
 import jewelry.marik.dex.constant.alais.uint32_t
@@ -9,7 +8,6 @@ import jewelry.marik.dex.constant.kAccValidClassFlags
 import jewelry.marik.dex.constant.kAccValidInterfaceFlags
 import jewelry.marik.util.data.MemoryReader
 import kotlin.reflect.full.companionObject
-import kotlin.reflect.full.staticProperties
 
 abstract class Struct<in T> {
     val _size: u4
@@ -102,7 +100,9 @@ internal data class TypeItem(val type_idx: uint16_t) {
 
 internal data class CodeItem(val registers_size: uint16_t, val ins_size: uint16_t, val out_size: uint16_t, val tries_size: uint16_t, val debug_info_off: uint32_t, val insns_size_in_code_uints: uint32_t, val insns: Array<uint16_t>) {
     companion object {
+        const val size = 18
 
+        fun create(buffer: MemoryReader) = CodeItem(buffer.uint16_t, buffer.uint16_t, buffer.uint16_t, buffer.uint16_t, buffer.uint32_t, buffer.uint32_t, arrayOf(0))
     }
 }
 

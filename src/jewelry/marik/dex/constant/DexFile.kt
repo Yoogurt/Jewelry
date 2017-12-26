@@ -10,6 +10,8 @@ object DexFile {
     const val kDexBigEndianConstant = 0x78563412
     const val kDexHeaderSize = 112
 
+    const val kDefaultMethodsVersion = 37
+
     val kDexMagic: u1Array = byteArrayOf('d'.toByte(), 'e'.toByte(), 'x'.toByte(), '\n'.toByte())
     val kDexMagicVersions: Array<ByteArray> = arrayOf(byteArrayOf('0'.toByte(), '3'.toByte(), '5'.toByte(), 0), byteArrayOf('0'.toByte(), '3'.toByte(), '7'.toByte(), 0))
 

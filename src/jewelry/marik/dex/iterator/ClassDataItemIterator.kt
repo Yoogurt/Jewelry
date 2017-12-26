@@ -78,6 +78,18 @@ internal open class ClassDataItemIterator(val dexFile: Dex, var ptr_pos: Pointer
     val memberIsFinal: Boolean
         get() = rawMemberAccessFlags and kAccFinal > 0
 
+    val methodCodeItemOffset: uint32_t
+        get() = method.code_off
+
+    val dataPointer: Pointer<uint8_t>
+        get() = ptr_pos.const
+
+    val endDataPointer: Pointer<uint8_t>
+        get() {
+            CHECK(!hasNext)
+            return ptr_pos
+        }
+
     val next: Unit
         get() {
             pos++

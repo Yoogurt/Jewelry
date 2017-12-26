@@ -5,6 +5,7 @@ import jewelry.marik.dex.base.DexBase
 import jewelry.marik.dex.constant.alais.u1Array
 import jewelry.marik.dex.constant.alais.u4
 import jewelry.marik.dex.constant.DexFile
+import jewelry.marik.dex.constant.alais.uint32_t
 import jewelry.marik.util.data.MemoryReader
 
 private const val verify = true

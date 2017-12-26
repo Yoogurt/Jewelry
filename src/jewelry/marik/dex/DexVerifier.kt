@@ -1,7 +1,7 @@
 package jewelry.marik.dex
 
 import com.sun.org.apache.xpath.internal.operations.Bool
-import jewelry.marik.dex.constant.DecodeUnsignedLeb128
+import jewelry.marik.dex.constant.*
 import jewelry.marik.os.OS
 import jewelry.marik.util.CHECK
 import jewelry.marik.util.log.error
@@ -9,12 +9,11 @@ import jewelry.marik.util.log.errorVerify
 import jewelry.marik.util.log.log
 import jewelry.marik.dex.constant.alais.*
 import jewelry.marik.dex.iterator.ClassDataItemIterator
-import jewelry.marik.dex.constant.DexFile
-import jewelry.marik.dex.constant.kAccJavaFlagsMask
-import jewelry.marik.dex.constant.kAccStatic
 import jewelry.marik.util.DCHECK
 import jewelry.marik.util.data.*
+import jewelry.marik.util.log.warning
 import jewelry.marik.util.nullptr
+import java.io.BufferedReader
 import java.util.zip.Adler32
 
 internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHolder, val begin: Pointer<Byte>, val size: Int, val location: String) {
@@ -397,6 +396,13 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                         4 - 1;
                 }
 
+        var stringIdCount = 0
+        var typeIdCount = 0
+        var protoIdCount = 0
+        var fieldIdCount = 0
+        var methodIdCount = 0
+        var classDefCount = 0
+
         // Iterate through the items in the section.
         (0 until section_count).forEach {
             var aligned_offset = (offset + alignment_mask) and alignment_mask.inv()
@@ -408,26 +414,32 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                 DexFile.kDexTypeStringIdItem -> {
                     checkListSize(ptr, 1, StringId.Companion.size, "string_ids")
                     ptr += StringId.Companion.size
+                    stringIdCount++
                 }
                 DexFile.kDexTypeTypeIdItem -> {
                     checkListSize(ptr, 1, TypeId.Companion.size, "type_ids")
                     ptr += TypeId.Companion.size
+                    typeIdCount++
                 }
                 DexFile.kDexTypeProtoIdItem -> {
                     checkListSize(ptr, 1, ProtoId.Companion.size, "proto_ids")
                     ptr += ProtoId.Companion.size
+                    protoIdCount++
                 }
                 DexFile.kDexTypeFieldIdItem -> {
                     checkListSize(ptr, 1, FieldId.Companion.size, "field_ids")
                     ptr += FieldId.Companion.size
+                    fieldIdCount++
                 }
                 DexFile.kDexTypeMethodIdItem -> {
                     checkListSize(ptr, 1, MethodId.Companion.size, "method_ids")
                     ptr += MethodId.Companion.size
+                    methodIdCount++
                 }
                 DexFile.kDexTypeClassDefItem -> {
                     checkListSize(ptr, 1, ClassDef.Companion.size, "class_defs")
                     ptr += ClassDef.Companion.size
+                    classDefCount++
                 }
                 DexFile.kDexTypeTypeList -> {
                     checkList(TypeItem.Companion.size, "type_list", ptr.pointer)
@@ -441,13 +453,20 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
                 DexFile.kDexTypeClassDataItem -> {
                     checkIntraClassDataItem()
                 }
+                DexFile.kDexTypeCodeItem -> {
+                    checkIntraCodeItem()
+                }
             }
         }
     }
 
+    private fun checkIntraCodeItem() {
+        checkListSize(ptr, 1, CodeItem.size, "code")
+    }
+
     private fun checkIntraClassDataItem() {
         val it = ClassDataItemIterator(holder.header.partial.dex, ptr)
-        val direct_method_indexes = HashSet<uint32_t>()
+        val direct_method_indexes = (HashSet<uint32_t>() as MutableSet<uint32_t>).pointer
 
         val have_class = false.pointer
         val class_type_index: Pointer<uint16_t> = 0.toShort().pointer
@@ -456,6 +475,10 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         checkIntraClassDataItemFields(it.pointer, true, have_class, class_type_index, class_access_flag)
         checkIntraClassDataItemFields(it.pointer, false, have_class, class_type_index, class_access_flag)
 
+        checkIntraClassDataItemMethods(it.pointer, true, direct_method_indexes, have_class, class_type_index, class_access_flag)
+        checkIntraClassDataItemMethods(it.pointer, false, direct_method_indexes, have_class, class_type_index, class_access_flag)
+
+        ptr = it.endDataPointer
     }
 
     private fun checkClassDataItemField(idx: uint32_t, access_flag: uint32_t, class_access_flags: uint32_t, class_type_index: uint16_t, expect_static: Boolean) {
@@ -470,26 +493,171 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         if (is_static != expect_static)
             "Static/instance field not in expected list".error()
 
-        val error_msg = "".pointer
-        if (!checkFieldAccessFlags(idx, access_flag, class_access_flags, error_msg))
-            error_msg[0].error()
+        checkFieldAccessFlags(idx, access_flag, class_access_flags)
     }
 
-    private fun checkClassDataItemMethod(idx: uint32_t, access_flag: uint32_t, class_access_flags: uint32_t, class_type_index: uint16_t, code_offset: uint32_t, direct_method_indexes: Pointer<Set<uint32_t>>, expect_direct: Boolean) {
+    private fun checkIntraClassDataItemMethods(it: Pointer<ClassDataItemIterator>, kDirect: Boolean, direct_method_indexes: Pointer<MutableSet<uint32_t>>, have_class: Pointer<Boolean>, class_type_index: Pointer<uint16_t>, class_access_flags: Pointer<uint32_t>) {
+        var prev_index = 0
+        while (if (kDirect) it[0].hasNextDirectMethod else it[0].hasNextVirtualMethod) {
+            val curr_index = it[0].memberIndex
+            checkOrderAndGetClassFlags(false, if (kDirect) "direct method" else "virtual method", curr_index, prev_index, have_class, class_type_index, class_access_flags)
+
+            prev_index = curr_index
+
+            checkClassDataItemMethod(curr_index, it[0].rawMemberAccessFlags, class_access_flags[0], class_type_index[0], it[0].methodCodeItemOffset, direct_method_indexes, kDirect)
+
+            it[0].next
+        }
+    }
+
+    private fun checkClassDataItemMethod(idx: uint32_t, access_flag: uint32_t, class_access_flags: uint32_t, class_type_index: uint16_t, code_offset: uint32_t, direct_method_indexes: Pointer<MutableSet<uint32_t>>, expect_direct: Boolean) {
         DCHECK(!direct_method_indexes.equals(nullptr))
 
         checkIndex(idx, holder.method_ids_size, "class_data_item method_idx")
 
-        val my_class_index = MethodId
+        val my_class_index = MethodId.create(MemoryReader(begin + holder.method_ids_off + MethodId.size * idx)).class_idx
+
+        if (class_type_index != my_class_index)
+            "Method's class index unexpected, $my_class_index vs $class_type_index".error()
+
+        if (expect_direct)
+            direct_method_indexes[0].add(idx)
+        else if (direct_method_indexes[0].indexOf(idx) != (direct_method_indexes[0].size - 1))
+            "Found virtual method with same index as direct method: $idx".error()
+
+        val has_code = code_offset != 0
+        checkMethodAccessFlags(idx, access_flag, class_access_flags, has_code, expect_direct)
     }
 
-    private fun checkFieldAccessFlags(idx: uint32_t, field_access_flags: uint32_t, class_access_flags: uint32_t, error_msg: Pointer<String>): Boolean {
-        if ((field_access_flags and kAccJavaFlagsMask.inv()) != 0) {
-            error_msg[0] = "Bad field access_flags for"
-            return false
+    private fun checkMethodAccessFlags(method_index: uint32_t, method_access_flag: uint32_t, class_access_flags: uint32_t, has_code: Boolean, expect_direct: Boolean) {
+        val kAllMethodFlags = kAccJavaFlagsMask or kAccConstructor or kAccDeclaredSynchronized
+        if ((method_access_flag and kAllMethodFlags.inv()) != 0)
+            "Bad method access_flags for ${getMethodDescriptionOrError(begin, holder, method_index)} , $method_access_flag".error()
+
+        val kMethodAccessFlags = kAccPublic or kAccProtected or kAccPrivate or kAccStatic or kAccFinal or kAccSynthetic or kAccSynchronized or kAccBridge or kAccVarargs or kAccNative or kAccAbstract or kAccAbstract or kAccStrict
+        if (!checkAtMostOneOfPublicProtectedPrivate(method_access_flag))
+            "Method may have only one of public/protected/private ${getMethodDescriptionOrError(begin, holder, method_index)}, $method_access_flag".error()
+
+        val str = "".pointer
+        val error_msg = "".pointer
+        if (!findMethodName(method_index, begin, holder, str, error_msg)) {
+            error_msg[0].error()
         }
-        return true
+
+        var is_init_by_name = false
+        val kInitName = "<init>"  // constructor
+        val str_offset = str.address - begin.address
+        if (holder.file_size - str_offset >= kInitName.length) {
+            is_init_by_name = (kInitName == str[0])
+        }
+
+        var is_clinit_by_name = false
+        val kClinitName = "<clinit>"
+        if (holder.file_size - str_offset >= kClinitName.length) {
+            is_clinit_by_name = (kClinitName == str[0])
+        }
+
+        val is_constructor = is_init_by_name or is_clinit_by_name
+
+        if (((method_access_flag and kAccConstructor) != 0) and !is_constructor) {
+            "Method $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) is marked constructor, but doesn't match name".error()
+        }
+
+        if (is_constructor) {
+            val is_static = (method_access_flag and kAccStatic) != 0
+            if (is_static xor is_clinit_by_name) {
+                "Constructor $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) is not flagged correctly wrt/ static.".error()
+            }
+        }
+
+        val is_direct = ((method_access_flag and (kAccStatic or kAccPrivate)) != 0) or is_constructor
+        if (is_direct != expect_direct)
+            "Direct/virtual method $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) not in expected list %d".error()
+
+        var method_access_flag = method_access_flag and kMethodAccessFlags
+
+        if ((class_access_flags and kAccInterface) != 0) {
+            val desired_flag = kAccPublic or kAccStatic or kAccPrivate
+            if ((method_access_flag and desired_flag) == 0) {
+                "Interface virtual method $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) is not public".error()
+            }
+
+        }
+
+        if (!has_code) {
+            if ((method_access_flag and (kAccNative or kAccAbstract)) == 0) {
+                "Method $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) has no code, but is not marked native or abstract".error()
+            }
+
+            if (is_constructor) {
+                "Constructor $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) must not be abstract or native".error()
+            }
+
+            if ((method_access_flag and kAccAbstract) != 0) {
+                val kForbidden = kAccPrivate or kAccStatic or kAccFinal or kAccNative or kAccStrict or kAccSynchronized
+                if ((method_access_flag and kForbidden) != 0) {
+                    "Abstract method $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) has disallowed access flags $method_access_flag".error()
+                }
+
+                if ((class_access_flags and (kAccInterface or kAccAbstract)) == 0) {
+                    "Method ${getMethodDescriptionOrError(begin, holder, method_index)} is abstract, but the declaring class is neither abstract nor an interface in dex file".warning()
+                }
+            }
+
+            if ((class_access_flags and kAccInterface) != 0) {
+                if ((method_access_flag and (kAccPublic or kAccAbstract)) != (kAccPublic or kAccAbstract)) {
+                    "Interface method $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) is not public and abstract".error()
+                }
+            }
+            // At this point, we know the method is public and abstract. This means that all the checks
+            // for invalid combinations above applies. In addition, interface methods must not be
+            // protected. This is caught by the check for only-one-of-public-protected-private.
+            return
+        }
+
+        if ((method_access_flag and (kAccNative or kAccAbstract)) != 0) {
+            "Method $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) has code, but is marked native or abstract".error()
+        }
+
+        if (is_init_by_name) {
+            val kInitAllowed = kAccPrivate or kAccProtected or kAccPublic or kAccStrict or kAccVarargs or kAccSynthetic
+            if ((method_access_flag and kInitAllowed.inv()) != 0) {
+                "Constructor $method_index (${getMethodDescriptionOrError(begin, holder, method_index)}) flagged inappropriately $method_access_flag".error()
+            }
+        }
     }
+
+    //
+    private fun checkFieldAccessFlags(idx: uint32_t, field_access_flags: uint32_t, class_access_flags: uint32_t) {
+        if ((field_access_flags and kAccJavaFlagsMask.inv()) != 0)
+            "Bad field access_flags for".error()
+
+        val kFieldAccessFlags = kAccPublic or kAccPrivate or kAccProtected or kAccStatic or kAccFinal or kAccVolatile or kAccTransient or kAccSynthetic or kAccEnum
+        if (!checkAtMostOneOfPublicProtectedPrivate(field_access_flags)) {
+            "Field may have only one of public/protected/private , $field_access_flags".error()
+        }
+
+        if ((class_access_flags and kAccInterface) != 0) {
+            val kPublicFinalStatic = kAccPublic or kAccFinal or kAccStatic
+
+            if ((field_access_flags and kPublicFinalStatic) != kPublicFinalStatic)
+                "Interface field is not public final static ${getFieldDescriptionOrError(begin, holder, idx)}, $field_access_flags".error()
+
+            //interface fields should have flags with public static final
+            val kDisallowed = (kPublicFinalStatic or kAccSynthetic).inv()
+            if ((field_access_flags and kFieldAccessFlags and kDisallowed) != 0)
+                "Interface field has disallowed flag ${getFieldDescriptionOrError(begin, holder, idx)}, $field_access_flags".error()
+
+            return
+        }
+
+        val kVolatileFinal = kAccVolatile or kAccFinal
+        if ((field_access_flags and kVolatileFinal) == kVolatileFinal)
+            "Field may not be volatiel and final ${getFieldDescriptionOrError(begin, holder, idx)} , $field_access_flags".error()
+    }
+
+    private inline fun checkAtMostOneOfPublicProtectedPrivate(flags: uint32_t): Boolean =
+            ((if ((flags and kAccPublic) == 0) 0 else 1) + (if ((flags and kAccProtected) == 0) 0 else 1) + (if ((flags and kAccPrivate) == 0) 0 else 1)) <= 1
 
     private inline fun checkIndex(field: uint32_t, limit: uint32_t, label: String) {
         if (field >= limit)
@@ -502,7 +670,7 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
         val it = it[0]
         var prev_index: uint32_t = 0
 
-        while ((kStatic and it.hasNextStaticField or it.hasNextInstanceField)) {
+        while ((if (kStatic) it.hasNextStaticField else it.hasNextInstanceField)) {
             val curr_index = it.memberIndex
             checkOrderAndGetClassFlags(true, if (kStatic) "static field" else "instance field", curr_index, prev_index, have_class, class_type_index, class_access_flags)
 
@@ -594,6 +762,12 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             return "${getClassOrError(begin, holder, field_id.class_idx)}.${getStringOrError(begin, holder, field_id.name_idx)}"
         }
 
+        private inline fun getMethodDescriptionOrError(begin: Pointer<uint8_t>, holder: DexHeader.Companion.DexHeaderHolder, idx: uint32_t): String {
+            val method_id = MethodId.create(MemoryReader(begin + holder.method_ids_off + idx * MethodId.size))
+
+            return "${getClassOrError(begin, holder, method_id.class_idx)}.${getStringOrError(begin, holder, method_id.name_idx)}"
+        }
+
         private fun getStringOrError(begin: Pointer<uint8_t>, holder: DexHeader.Companion.DexHeaderHolder, string_idx: uint32_t): String {
             if (holder.string_ids_size <= string_idx)
                 return "(error)"
@@ -610,6 +784,31 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
             val type_id = TypeId.create(MemoryReader(begin + holder.type_ids_off + class_idx * TypeId.size))
 
             return getStringOrError(begin, holder, type_id.descriptor_idx)
+        }
+
+        private fun findMethodName(method_index: uint32_t, begin: Pointer<uint8_t>, holder: DexHeader.Companion.DexHeaderHolder, str: Pointer<String>, error_msg: Pointer<String>): Boolean {
+            if (method_index >= holder.method_ids_size) {
+                error_msg[0] = "Method index not available for method flags verification"
+                return false
+            }
+
+            val string_idx = MethodId.create(MemoryReader(begin + holder.method_ids_off + method_index + MethodId.size)).name_idx
+            if (string_idx >= holder.string_ids_size) {
+                error_msg[0] = "String index not available for method flags verification"
+                return false
+            }
+
+            val string_off = StringId.create(MemoryReader(begin + holder.method_ids_off + string_idx * StringId.size)).string_data_off
+            if (string_off >= holder.file_size) {
+                error_msg[0] = "String offset out of bounds for method flags verification"
+                return false
+            }
+
+            val string_data_ptr = begin + string_off
+            str.address = string_data_ptr.address
+            DecodeUnsignedLeb128(string_data_ptr.pointer)
+            str[0] = string_data_ptr.string
+            return true
         }
 
     }

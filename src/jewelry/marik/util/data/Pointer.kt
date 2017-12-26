@@ -6,6 +6,7 @@ import jewelry.marik.dex.constant.alais.uint8_t
 import jewelry.marik.os.OS
 import jewelry.marik.util.log.error
 import kotlin.collections.ArrayList
+import kotlin.reflect.KClass
 
 /* void* */
 internal abstract class Pointer<Type> constructor(pointer: uint32_t) {
@@ -47,6 +48,28 @@ internal abstract class Pointer<Type> constructor(pointer: uint32_t) {
     open operator fun compareTo(other: Number): Int = address.toUnsigned().compareTo(other.toInt())
 
     override fun toString(): String = "${this::class.simpleName} at $address"
+
+    val const: Pointer<Type>
+        get() = ConstValuePointer<Type>(this)
+}
+
+internal class ConstValuePointer<Type>(private val source: Pointer<Type>) : Pointer<Type>(source.address) {
+    override val size: Int
+        get() = source.size
+
+    override operator fun plus(value: Int): Pointer<Type> = source + value
+
+    override operator fun minus(value: Int): Pointer<Type> = source - value
+
+    override operator fun minus(value: Pointer<Type>): Int = source - value
+
+    override fun inc(): Pointer<Type> = source.inc()
+
+    override fun dec(): Pointer<Type> = source.dec()
+
+    override operator fun get(index: Int): Type = source[index]
+
+    override operator fun set(index: Int, value: Type) = throw UnsupportedOperationException()
 }
 
 /*  void**  */
@@ -121,7 +144,7 @@ internal class ObjectPointer<Type>(source: Type) : Pointer<Type>(-1) {
 }
 
 /* struct[] */
-abstract internal class StructPointer<Type : Struct<*>>(pointer: uint32_t) : Pointer<Type>(pointer) {
+abstract internal class StructPointer<Type : Struct<*>>(pointer: uint32_t, private val clz: KClass<Type>) : Pointer<Type>(pointer) {
     override val size: Int = 4
 
     override fun get(index: Int): Type {
@@ -131,17 +154,6 @@ abstract internal class StructPointer<Type : Struct<*>>(pointer: uint32_t) : Poi
 
 /* uint8_t* */
 internal class BytePtr(pointer: uint32_t) : Pointer<Byte>(pointer) {
-    val string: String by lazy {
-        val collection = ArrayList<Byte>(20)
-
-        (address..Int.MAX_VALUE).forEach {
-            if (OS.MEMORY[it] != 0.toByte())
-                collection.add(OS.MEMORY[it])
-            else return@lazy String(collection.toByteArray())
-        }
-        "out of range".error()
-    }
-
     override fun get(index: Int): Byte = OS.MEMORY[address + index * size]
 
     override fun set(index: Int, value: Byte) {
@@ -174,6 +186,8 @@ internal val Pointer<uint8_t>.string: String
         "out of range".error()
     }
 
+internal val BytePtr.string: String
+    get() = (this as Pointer<uint8_t>).string
 
 /* uint32_t* */
 internal class ShortPtr(pointer: uint32_t) : Pointer<Short>(pointer) {
@@ -259,8 +273,6 @@ inline internal val <reified Type> Type.pointer: Pointer<Type>
     get() = when (Type::class) {
         Pointer::class ->
             (SecondaryPointer(this as Pointer<*>) as Pointer<Type>)
-//        Struct::class ->
-
         else ->
             ObjectPointer(this)
     }
@@ -317,5 +329,5 @@ fun testBytePtrUTFString() {
     val data = "你好，我好，大家好".toByteArray()
 
     System.arraycopy(data, 0, OS.MEMORY, 0, data.size)
-    println((BytePtr(0) as Pointer<uint8_t>).string)
+    println((BytePtr(0)).string)
 }

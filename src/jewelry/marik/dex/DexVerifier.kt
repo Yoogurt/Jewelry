@@ -244,13 +244,13 @@ internal class DexVerifier(private val holder: DexHeader.Companion.DexHeaderHold
 
     private fun checkIntraSection() {
         val map = holder.header.map_list
-        val items = map.list
+        val mapItems = map.list
 
         var offset: size_t = 0
         ptr = begin
 
         // Check the items listed in the map.
-        items.forEachIndexed { count, item ->
+        mapItems.forEachIndexed { _, item ->
 
             val section_offset = item.offset
             val section_count = item.size

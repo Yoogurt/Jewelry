@@ -120,7 +120,7 @@ internal class DexHeader(val partial: DexPartial) : DexBase<DexHeader.Companion.
             @Throws(DexException::class)
             override fun onVerify() {
                 if (verify)
-                    DexVerifier(this, header.begin, header.size, header.partial.dex.location).verify(false)
+                    DexVerifier(this, header.begin, header.size, header.partial.dex.location).verify(true)
             }
         }
     }
